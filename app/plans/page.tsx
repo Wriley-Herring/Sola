@@ -2,6 +2,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { PlanCard } from "@/components/PlanCard";
 import { listReadingPlans } from "@/lib/repositories/reading-repository";
 
+export const dynamic = "force-dynamic";
+
 export default async function PlansPage() {
   const plans = await listReadingPlans();
 
