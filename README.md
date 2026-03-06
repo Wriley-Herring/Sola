@@ -1,95 +1,80 @@
-# Sola MVP
+# Sola (Supabase + Next.js)
 
-Sola is a context-first daily Bible study app designed to feel calm, premium, and native on mobile web.
+Sola is a context-first Bible study app built with Next.js App Router. This version uses Supabase Postgres for persistence and server-side data access.
 
 ## Stack
 
-- Next.js 14 (App Router + TypeScript)
+- Next.js 14 App Router + TypeScript
 - Tailwind CSS
-- Prisma ORM
-- SQLite for local MVP (PostgreSQL-ready schema)
+- Supabase Postgres (`@supabase/supabase-js`)
+- Vercel deployment (Supabase Marketplace integration)
 
-## Project structure
+## Required environment variables
 
-```txt
-app/
-  page.tsx                  # onboarding / landing
-  today/page.tsx            # core daily reading screen
-  plans/page.tsx            # reading plan selection
-  progress/page.tsx         # progress dashboard
-  profile/page.tsx          # future settings shell
-  actions.ts                # server actions (select plan, complete day)
-  api/health/route.ts       # simple route handler
-components/
-  AppShell.tsx
-  MobileHeader.tsx
-  BottomTabBar.tsx
-  PlanCard.tsx
-  DailyReadingHeader.tsx
-  ScriptureCard.tsx
-  ExpandableInsightCard.tsx
-  ProgressCard.tsx
-  EmptyState.tsx
-  LoadingState.tsx
-lib/
-  prisma.ts
-  repositories/reading-repository.ts
-  insights/generator.ts
-  insights/service.ts
-db/
-  seed-data.ts
-prisma/
-  schema.prisma
-  seed.ts
-types/
-  insights.ts
+Vercel Marketplace usually syncs these automatically:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (optional right now, needed if/when browser client auth is added)
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only; never expose in browser code)
+
+For local development, create `.env.local`:
+
+```bash
+cp .env.example .env.local
 ```
 
-## Data model
+## Database setup (Supabase SQL)
 
-- `User`
-- `ReadingPlan`
-- `ReadingPlanDay`
-- `UserPlanEnrollment`
-- `UserProgressDay`
-- `PassageInsightCache`
+Run these SQL files in the Supabase SQL editor (or via CLI):
 
-`PassageInsightCache` is keyed by normalized passage reference so insights are generated once per passage and reused across plans/users.
+1. `supabase/migrations/001_init.sql`
+2. `supabase/seed.sql`
 
-## Insight caching flow
+The seed script is idempotent and safe to rerun.
 
-1. Today screen loads active plan day.
-2. `getOrCreatePassageInsights(reference, passageText)` normalizes reference.
-3. If cached, return persisted insight JSON.
-4. If missing, call `generatePassageInsights(...)` mock AI abstraction.
-5. Save to `PassageInsightCache` and reuse on future requests.
-
-## Seed data
-
-Included plans:
-
-- Life of Jesus (30 days)
-- Foundations of Scripture (30 days)
-- Psalms for Prayer (14 days)
-
-Passages are intentionally reused across plans to demonstrate shared insight caching by normalized reference.
-
-## Local setup
+## Run locally
 
 ```bash
 npm install
-cp .env.example .env
-npm run db:push
-npm run db:seed
 npm run dev
 ```
 
 Open `http://localhost:3000`.
 
-## Architecture notes
+## How Supabase is used
 
-- Single-user demo mode for MVP simplicity (`demo@sola.app`).
-- Server components render primary screens.
-- Server actions handle plan enrollment + day completion.
-- Database/repository boundaries keep persistence swappable.
-- Mocked AI service is isolated and replaceable with real LLM calls later.
+- `lib/supabase/server.ts`: server-only Supabase client using service role key.
+- `lib/repositories/reading-repository.ts`: reading plans, enrollment, active plan lookup, today reading, and progress updates.
+- `lib/insights/service.ts`: cache-first insight retrieval against `passage_insight_cache`.
+- `app/actions.ts`: server actions for selecting plan and completing current day.
+
+## Passage insight cache behavior
+
+Cache key is normalized passage reference (`normalized_passage_reference`).
+
+Flow on Today page:
+
+1. Normalize passage reference.
+2. Query `passage_insight_cache`.
+3. If found, return cached payload.
+4. If missing, generate deterministic mock insights.
+5. Insert into cache.
+6. If insert races another request, recover via unique-constraint retry/select.
+
+This guarantees one stored insight payload per passage across all users/plans.
+
+## Single-user MVP mode
+
+Auth is intentionally deferred. The app auto-creates/uses one fixed development user:
+
+- `00000000-0000-0000-0000-000000000001`
+
+This logic is isolated in the repository layer so real auth can replace it later.
+
+## Replacing mock insights with a real LLM later
+
+Replace internals of `generatePassageInsights(reference, passageText)` in:
+
+- `lib/insights/generator.ts`
+
+Keep `lib/insights/service.ts` unchanged so cache behavior remains stable.

@@ -1,8 +1,9 @@
+import { EmptyState } from "@/components/EmptyState";
 import { PlanCard } from "@/components/PlanCard";
-import { getReadingPlans } from "@/lib/repositories/reading-repository";
+import { listReadingPlans } from "@/lib/repositories/reading-repository";
 
 export default async function PlansPage() {
-  const plans = await getReadingPlans();
+  const plans = await listReadingPlans();
 
   return (
     <div className="space-y-6 pt-2">
@@ -12,11 +13,18 @@ export default async function PlansPage() {
         <p className="max-w-xl text-sm text-charcoal/70">Start with one plan and let each day build quiet confidence in the story of Scripture.</p>
       </header>
 
-      <section className="grid gap-4">
-        {plans.map((plan) => (
-          <PlanCard key={plan.id} id={plan.id} title={plan.title} description={plan.description} duration={plan.duration} />
-        ))}
-      </section>
+      {plans.length === 0 ? (
+        <EmptyState
+          title="No plans available"
+          description="Reading plans have not been seeded yet. Run the Supabase seed SQL and refresh."
+        />
+      ) : (
+        <section className="grid gap-4">
+          {plans.map((plan) => (
+            <PlanCard key={plan.id} id={plan.id} title={plan.title} description={plan.description} duration={plan.duration_days} />
+          ))}
+        </section>
+      )}
     </div>
   );
 }
