@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-parchment text-charcoal antialiased;
+}
+
+.prose-scripture p {
+  @apply mb-4 leading-8 text-[1.03rem] text-charcoal/90;
+}
