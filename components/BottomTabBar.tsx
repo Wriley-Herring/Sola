@@ -14,6 +14,12 @@ const tabs = [
 export function BottomTabBar() {
   const pathname = usePathname();
 
+  const hiddenRoutes = ["/", "/login", "/auth/callback"];
+
+  if (hiddenRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+    return null;
+  }
+
   return (
     <nav
       aria-label="Primary"

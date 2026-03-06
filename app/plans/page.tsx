@@ -1,10 +1,12 @@
 import { EmptyState } from "@/components/EmptyState";
 import { PlanCard } from "@/components/PlanCard";
 import { listReadingPlans } from "@/lib/repositories/reading-repository";
+import { requireAppUserProfile } from "@/lib/auth/get-current-user";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlansPage() {
+  await requireAppUserProfile();
   const plans = await listReadingPlans();
 
   return (

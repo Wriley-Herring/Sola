@@ -6,13 +6,13 @@ import { ScriptureCard } from "@/components/ScriptureCard";
 import { getOrCreatePassageInsights } from "@/lib/insights/service";
 import {
   getCurrentDayReading,
-  getOrCreateMvpUser,
   getUserActivePlan
 } from "@/lib/repositories/reading-repository";
+import { requireAppUserProfile } from "@/lib/auth/get-current-user";
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
-  const user = await getOrCreateMvpUser();
+  const { user } = await requireAppUserProfile();
   const active = await getUserActivePlan(user.id);
 
   if (!active) {
