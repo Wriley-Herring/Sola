@@ -6,6 +6,21 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOrCreateAppUserProfile } from "@/lib/auth/get-current-user";
 
 function getOrigin() {
+  const configuredSiteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL;
+
+  if (configuredSiteUrl) {
+    const normalizedSiteUrl = configuredSiteUrl.startsWith("http")
+      ? configuredSiteUrl
+      : `https://${configuredSiteUrl}`;
+
+    try {
+      return new URL(normalizedSiteUrl).origin;
+    } catch {
+      // Fall back to forwarded headers when configured URL is malformed.
+    }
+  }
+
   const headerStore = headers();
   const forwardedProto = headerStore.get("x-forwarded-proto");
   const forwardedHost = headerStore.get("x-forwarded-host");
