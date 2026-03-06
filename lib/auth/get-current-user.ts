@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -9,7 +10,31 @@ export type AppUserProfile = {
   created_at: string;
 };
 
+type AuthUser = {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+};
+
+function getE2EBypassUser(): AuthUser | null {
+  if (process.env.NODE_ENV !== "test" || process.env.E2E_AUTH_BYPASS !== "true") {
+    return null;
+  }
+
+  const cookieValue = cookies().get("sola-e2e-user")?.value;
+  if (!cookieValue) return null;
+
+  return {
+    id: cookieValue,
+    email: `${cookieValue}@e2e.local`,
+    user_metadata: { full_name: "E2E User" }
+  };
+}
+
 export async function getCurrentAuthUser() {
+  const bypassUser = getE2EBypassUser();
+  if (bypassUser) return bypassUser;
+
   const supabase = createServerSupabaseClient();
   const {
     data: { user }

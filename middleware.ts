@@ -1,11 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-
-const protectedRoutes = ["/today", "/plans", "/progress", "/profile"];
-
-function isProtectedPath(pathname: string) {
-  return protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
-}
+import { shouldRedirectToLogin, shouldRedirectToToday } from "@/lib/middleware/route-guards";
 
 export async function middleware(request: NextRequest) {
   const { supabase, response } = await updateSession(request);
@@ -15,14 +10,14 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  if (isProtectedPath(pathname) && !user) {
+  if (shouldRedirectToLogin(pathname, Boolean(user))) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (pathname === "/login" && user) {
+  if (shouldRedirectToToday(pathname, Boolean(user))) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/today";
     redirectUrl.search = "";

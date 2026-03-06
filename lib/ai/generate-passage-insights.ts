@@ -10,8 +10,8 @@ export type PassageInsights = {
   reflectionQuestion: string;
 };
 
-const MODEL = "gpt-5-mini";
-const PROMPT_VERSION = "v1";
+export const MODEL = "gpt-5-mini";
+export const PROMPT_VERSION = "v1";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -39,7 +39,7 @@ const schema = {
   }
 } as const;
 
-function trimAndValidateString(value: unknown, fieldName: string): string {
+export function trimAndValidateString(value: unknown, fieldName: string): string {
   if (typeof value !== "string") {
     throw new Error(`Invalid insight payload: ${fieldName} must be a string.`);
   }
@@ -52,7 +52,7 @@ function trimAndValidateString(value: unknown, fieldName: string): string {
   return trimmed;
 }
 
-function validateInsights(payload: unknown): PassageInsights {
+export function validateInsights(payload: unknown): PassageInsights {
   if (!payload || typeof payload !== "object") {
     throw new Error("Invalid insight payload: expected an object.");
   }
