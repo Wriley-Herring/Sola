@@ -1,10 +1,11 @@
 import { EmptyState } from "@/components/EmptyState";
 import { ProgressCard } from "@/components/ProgressCard";
-import { getOrCreateMvpUser, getUserActivePlan } from "@/lib/repositories/reading-repository";
+import { getUserActivePlan } from "@/lib/repositories/reading-repository";
+import { requireAppUserProfile } from "@/lib/auth/get-current-user";
 export const dynamic = "force-dynamic";
 
 export default async function ProgressPage() {
-  const user = await getOrCreateMvpUser();
+  const { user } = await requireAppUserProfile();
   const active = await getUserActivePlan(user.id);
 
   if (!active) {

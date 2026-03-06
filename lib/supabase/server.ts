@@ -1,22 +1,29 @@
-import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
-/**
- * Required env vars (Vercel Marketplace should sync these automatically):
- * - NEXT_PUBLIC_SUPABASE_URL
- * - SUPABASE_SERVICE_ROLE_KEY
- */
 export function createServerSupabaseClient() {
+  const cookieStore = cookies();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !supabasePublishableKey) {
     throw new Error("Missing Supabase server environment variables.");
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
+  return createServerClient(supabaseUrl, supabasePublishableKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Cookies can only be set in Route Handlers/Server Actions.
+        }
+      }
     }
   });
 }

@@ -13,13 +13,13 @@ export default function HomePage() {
 
       <section className="space-y-3">
         <Link
-          href="/plans"
+          href="/login?next=/plans"
           className="block w-full rounded-2xl bg-charcoal px-5 py-4 text-center text-base font-medium text-white shadow-soft transition hover:bg-charcoal/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-olive/60"
         >
           Choose a reading plan
         </Link>
         <Link
-          href="/today"
+          href="/login?next=/today"
           className="block w-full rounded-2xl border border-charcoal/15 bg-white/60 px-5 py-4 text-center text-base text-charcoal transition hover:bg-white"
         >
           Continue today&apos;s reading

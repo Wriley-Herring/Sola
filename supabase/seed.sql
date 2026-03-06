@@ -3,11 +3,6 @@ begin;
 truncate table public.user_progress restart identity cascade;
 truncate table public.reading_plan_days restart identity cascade;
 truncate table public.reading_plans restart identity cascade;
-truncate table public.users restart identity cascade;
-
-insert into public.users (id)
-values ('00000000-0000-0000-0000-000000000001');
-
 insert into public.reading_plans (slug, title, description, duration_days)
 values
   ('life-of-jesus', 'Life of Jesus', 'Walk through key moments in Christ''s ministry with contemplative daily readings.', 30),

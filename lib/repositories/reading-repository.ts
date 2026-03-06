@@ -1,7 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-const MVP_USER_ID = "00000000-0000-0000-0000-000000000001";
-
 export type ReadingPlan = {
   id: string;
   slug: string;
@@ -26,70 +24,6 @@ export type ReadingPlanDay = {
   passage_reference: string;
   passage_text: string;
 };
-
-export async function getOrCreateMvpUser() {
-  const supabase = createServerSupabaseClient();
-
-  const isMissingTableError = (error: unknown) => {
-    if (!error || typeof error !== "object") return false;
-    const code = "code" in error ? (error.code as string | undefined) : undefined;
-    return code === "PGRST205";
-  };
-
-  const createFallbackIdentity = () => ({
-    id: MVP_USER_ID,
-    email: `mvp-user-${MVP_USER_ID}@sola.local`,
-    name: "Sola MVP User"
-  });
-
-  const { data: existing, error: fetchError } = await supabase
-    .from("users")
-    .select("id, created_at")
-    .eq("id", MVP_USER_ID)
-    .maybeSingle();
-
-  if (fetchError && !isMissingTableError(fetchError)) throw fetchError;
-
-  if (existing) return existing;
-
-  if (fetchError && isMissingTableError(fetchError)) {
-    const { data: pascalExisting, error: pascalFetchError } = await supabase
-      .from("User")
-      .select("id, createdAt")
-      .eq("id", MVP_USER_ID)
-      .maybeSingle();
-
-    if (pascalFetchError) throw pascalFetchError;
-    if (pascalExisting) {
-      return {
-        id: pascalExisting.id,
-        created_at: pascalExisting.createdAt
-      };
-    }
-
-    const { data: pascalCreated, error: pascalCreateError } = await supabase
-      .from("User")
-      .insert(createFallbackIdentity())
-      .select("id, createdAt")
-      .single();
-
-    if (pascalCreateError) throw pascalCreateError;
-
-    return {
-      id: pascalCreated.id,
-      created_at: pascalCreated.createdAt
-    };
-  }
-
-  const { data: created, error: createError } = await supabase
-    .from("users")
-    .insert({ id: MVP_USER_ID })
-    .select("id, created_at")
-    .single();
-
-  if (createError) throw createError;
-  return created;
-}
 
 export async function listReadingPlans(): Promise<ReadingPlan[]> {
   const supabase = createServerSupabaseClient();
@@ -170,13 +104,14 @@ export async function getCurrentDayReading(planId: string, dayNumber: number): P
   return data;
 }
 
-export async function markDayComplete(progressId: string, completedDay: number, totalDays: number) {
+export async function markDayComplete(userId: string, progressId: string, completedDay: number, totalDays: number) {
   const supabase = createServerSupabaseClient();
 
   const { data: progress, error: loadError } = await supabase
     .from("user_progress")
     .select("completed_days")
     .eq("id", progressId)
+    .eq("user_id", userId)
     .single();
 
   if (loadError) throw loadError;
@@ -191,10 +126,10 @@ export async function markDayComplete(progressId: string, completedDay: number, 
     .from("user_progress")
     .update({
       completed_days: completedDays,
-      current_day: nextDay,
-      updated_at: new Date().toISOString()
+      current_day: nextDay
     })
-    .eq("id", progressId);
+    .eq("id", progressId)
+    .eq("user_id", userId);
 
   if (updateError) throw updateError;
 }
