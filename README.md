@@ -1,58 +1,51 @@
 # Sola MVP
 
-Sola is a context-first Bible study app built for a calm daily Scripture rhythm. The MVP focuses on:
+Sola is a context-first daily Bible study app designed to feel calm, premium, and native on mobile web.
 
-- selecting a reading plan
-- reading the current day with a polished scripture experience
-- viewing layered contextual insights
-- caching insights by passage for cross-plan reuse
-- tracking and persisting progress over time
+## Stack
 
-## Tech Stack
-
-- Next.js App Router + TypeScript
+- Next.js 14 (App Router + TypeScript)
 - Tailwind CSS
 - Prisma ORM
-- SQLite for local development (swap to PostgreSQL by changing Prisma datasource)
+- SQLite for local MVP (PostgreSQL-ready schema)
 
-## Project Structure
+## Project structure
 
 ```txt
 app/
-  actions.ts                # server actions for plan selection + completion
-  page.tsx                  # landing page
-  plans/page.tsx            # reading plans listing
-  dashboard/page.tsx        # current daily reading experience
-  profile/page.tsx          # progress view
+  page.tsx                  # onboarding / landing
+  today/page.tsx            # core daily reading screen
+  plans/page.tsx            # reading plan selection
+  progress/page.tsx         # progress dashboard
+  profile/page.tsx          # future settings shell
+  actions.ts                # server actions (select plan, complete day)
   api/health/route.ts       # simple route handler
 components/
   AppShell.tsx
-  TopNav.tsx
+  MobileHeader.tsx
+  BottomTabBar.tsx
   PlanCard.tsx
   DailyReadingHeader.tsx
   ScriptureCard.tsx
-  InsightAccordion.tsx
   ExpandableInsightCard.tsx
   ProgressCard.tsx
   EmptyState.tsx
   LoadingState.tsx
 lib/
-  prisma.ts                 # Prisma singleton
+  prisma.ts
   repositories/reading-repository.ts
-  insights/generator.ts     # AI abstraction (mock generator)
-  insights/service.ts       # cache lookup + persistence
+  insights/generator.ts
+  insights/service.ts
 db/
-  seed-data.ts              # seed reading plans and passages
+  seed-data.ts
 prisma/
-  schema.prisma             # data model
-  seed.ts                   # database seed script
+  schema.prisma
+  seed.ts
 types/
   insights.ts
 ```
 
-## Data Model
-
-Core tables:
+## Data model
 
 - `User`
 - `ReadingPlan`
@@ -61,52 +54,42 @@ Core tables:
 - `UserProgressDay`
 - `PassageInsightCache`
 
-`PassageInsightCache` is keyed by normalized passage reference, so repeated references across plans reuse the same generated insight payload.
+`PassageInsightCache` is keyed by normalized passage reference so insights are generated once per passage and reused across plans/users.
 
-## Insight Caching Flow
+## Insight caching flow
 
-1. Dashboard loads the current reading day.
-2. `getOrCreatePassageInsights(reference, passageText)` normalizes the reference.
-3. If a `PassageInsightCache` record exists, it returns cached insights.
-4. If not, it calls `generatePassageInsights(...)` from the mock generator abstraction.
-5. New insights are persisted and reused for future requests.
+1. Today screen loads active plan day.
+2. `getOrCreatePassageInsights(reference, passageText)` normalizes reference.
+3. If cached, return persisted insight JSON.
+4. If missing, call `generatePassageInsights(...)` mock AI abstraction.
+5. Save to `PassageInsightCache` and reuse on future requests.
 
-## Getting Started
+## Seed data
 
-1. Install dependencies:
+Included plans:
 
-   ```bash
-   npm install
-   ```
+- Life of Jesus (30 days)
+- Foundations of Scripture (30 days)
+- Psalms for Prayer (14 days)
 
-2. Set up environment:
+Passages are intentionally reused across plans to demonstrate shared insight caching by normalized reference.
 
-   ```bash
-   cp .env.example .env
-   ```
+## Local setup
 
-3. Create DB + generate Prisma client:
+```bash
+npm install
+cp .env.example .env
+npm run db:push
+npm run db:seed
+npm run dev
+```
 
-   ```bash
-   npm run db:push
-   ```
+Open `http://localhost:3000`.
 
-4. Seed plans, passages, and demo user:
+## Architecture notes
 
-   ```bash
-   npm run db:seed
-   ```
-
-5. Run dev server:
-
-   ```bash
-   npm run dev
-   ```
-
-6. Open `http://localhost:3000`.
-
-## Notes
-
-- MVP uses a mocked single-user mode (`demo@sola.app`) to keep setup simple.
-- Route handlers and server actions are used where appropriate for a Vercel-friendly architecture.
-- To move to PostgreSQL, update `schema.prisma` datasource and `DATABASE_URL`, then run Prisma migrations.
+- Single-user demo mode for MVP simplicity (`demo@sola.app`).
+- Server components render primary screens.
+- Server actions handle plan enrollment + day completion.
+- Database/repository boundaries keep persistence swappable.
+- Mocked AI service is isolated and replaceable with real LLM calls later.

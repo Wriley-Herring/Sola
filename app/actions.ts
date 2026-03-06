@@ -27,7 +27,8 @@ export async function selectPlanAction(formData: FormData) {
     }
   });
 
-  revalidatePath("/dashboard");
+  revalidatePath("/today");
+  revalidatePath("/progress");
   revalidatePath("/profile");
 }
 
@@ -69,6 +70,7 @@ export async function completeCurrentDayAction(formData: FormData) {
     });
   });
 
-  revalidatePath("/dashboard");
+  revalidatePath("/today");
+  revalidatePath("/progress");
   revalidatePath("/profile");
 }

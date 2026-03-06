@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
-import { TopNav } from "@/components/TopNav";
+import { MobileHeader } from "@/components/MobileHeader";
+import { BottomTabBar } from "@/components/BottomTabBar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-parchment to-[#efeae0]">
-      <TopNav />
-      <main className="mx-auto w-full max-w-5xl px-4 pb-20 pt-8 sm:px-6">{children}</main>
+    <div className="min-h-screen bg-gradient-to-b from-parchment to-[#ece7dc] text-charcoal">
+      <MobileHeader />
+      <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-5">{children}</main>
+      <BottomTabBar />
     </div>
   );
 }
