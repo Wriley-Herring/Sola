@@ -9,6 +9,7 @@ import {
   getOrCreateMvpUser,
   getUserActivePlan
 } from "@/lib/repositories/reading-repository";
+export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
   const user = await getOrCreateMvpUser();
