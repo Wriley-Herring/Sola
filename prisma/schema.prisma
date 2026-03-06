@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String               @id @default(cuid())
+  email       String               @unique
+  name        String
+  enrollments UserPlanEnrollment[]
+  createdAt   DateTime             @default(now())
+}
+
+model ReadingPlan {
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  title       String
+  description String
+  duration    Int
+  days        ReadingPlanDay[]
+  enrollments UserPlanEnrollment[]
+  createdAt   DateTime         @default(now())
+}
+
+model ReadingPlanDay {
+  id               String      @id @default(cuid())
+  planId           String
+  dayNumber        Int
+  passageReference String
+  normalizedRef    String
+  passageText      String
+  plan             ReadingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, dayNumber])
+}
+
+model UserPlanEnrollment {
+  id           String            @id @default(cuid())
+  userId       String
+  planId       String
+  currentDay   Int               @default(1)
+  completed    Boolean           @default(false)
+  startedAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan         ReadingPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  completedDays UserProgressDay[]
+
+  @@unique([userId, planId])
+}
+
+model UserProgressDay {
+  id           String             @id @default(cuid())
+  enrollmentId String
+  dayNumber    Int
+  completedAt  DateTime           @default(now())
+  enrollment   UserPlanEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, dayNumber])
+}
+
+model PassageInsightCache {
+  id                 String   @id @default(cuid())
+  normalizedReference String  @unique
+  historicalContext  String
+  culturalContext    String
+  literaryContext    String
+  keyThemes          Json
+  reflectionQuestion String
+  generatedAt        DateTime @default(now())
+}
