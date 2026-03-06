@@ -30,14 +30,56 @@ export type ReadingPlanDay = {
 export async function getOrCreateMvpUser() {
   const supabase = createServerSupabaseClient();
 
+  const isMissingTableError = (error: unknown) => {
+    if (!error || typeof error !== "object") return false;
+    const code = "code" in error ? (error.code as string | undefined) : undefined;
+    return code === "PGRST205";
+  };
+
+  const createFallbackIdentity = () => ({
+    id: MVP_USER_ID,
+    email: `mvp-user-${MVP_USER_ID}@sola.local`,
+    name: "Sola MVP User"
+  });
+
   const { data: existing, error: fetchError } = await supabase
     .from("users")
     .select("id, created_at")
     .eq("id", MVP_USER_ID)
     .maybeSingle();
 
-  if (fetchError) throw fetchError;
+  if (fetchError && !isMissingTableError(fetchError)) throw fetchError;
+
   if (existing) return existing;
+
+  if (fetchError && isMissingTableError(fetchError)) {
+    const { data: pascalExisting, error: pascalFetchError } = await supabase
+      .from("User")
+      .select("id, createdAt")
+      .eq("id", MVP_USER_ID)
+      .maybeSingle();
+
+    if (pascalFetchError) throw pascalFetchError;
+    if (pascalExisting) {
+      return {
+        id: pascalExisting.id,
+        created_at: pascalExisting.createdAt
+      };
+    }
+
+    const { data: pascalCreated, error: pascalCreateError } = await supabase
+      .from("User")
+      .insert(createFallbackIdentity())
+      .select("id, createdAt")
+      .single();
+
+    if (pascalCreateError) throw pascalCreateError;
+
+    return {
+      id: pascalCreated.id,
+      created_at: pascalCreated.createdAt
+    };
+  }
 
   const { data: created, error: createError } = await supabase
     .from("users")
