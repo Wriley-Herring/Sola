@@ -37,12 +37,15 @@ create table if not exists public.user_progress (
 
 create table if not exists public.passage_insight_cache (
   id uuid primary key default gen_random_uuid(),
-  normalized_passage_reference text not null unique,
+  normalized_reference text not null unique,
   historical_context text not null,
   cultural_context text not null,
   literary_context text not null,
   key_themes jsonb not null default '[]'::jsonb,
   reflection_question text not null,
+  model text not null,
+  prompt_version text not null,
+  generated_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
