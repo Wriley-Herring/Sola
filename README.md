@@ -120,3 +120,47 @@ Flow on Today page:
 6. If insert races another request, recover via unique-constraint retry/select.
 
 This keeps passage insights globally shared while user progress remains user-owned.
+
+## Testing strategy and harness
+
+Sola uses a layered test strategy to keep feedback fast while covering production-critical flows.
+
+### Test suites
+
+- **Unit (`tests/unit`)**: pure logic and high-signal component behavior.
+  - reference normalization
+  - AI payload validation helpers
+  - middleware route classification logic
+  - empty-state rendering behavior
+- **Integration (`tests/integration`, `tests/actions`, `tests/middleware`)**: service/repository/server action behavior with mocked Supabase/OpenAI seams.
+  - insight cache hit/miss + duplicate insert recovery
+  - plan enrollment and progress completion behavior
+  - middleware redirects + cookie mutation behavior
+  - server action auth enforcement and revalidation side effects
+- **E2E (`tests/e2e`)**: route protection + core user journey using Playwright.
+
+### Test commands
+
+- `npm run test` – watch-mode Vitest
+- `npm run test:unit` – unit tests
+- `npm run test:integration` – integration + middleware + actions
+- `npm run test:ci` – full Vitest run with coverage
+- `npm run test:e2e` – Playwright suite
+- `npm run typecheck` – TypeScript strict check
+- `npm run verify` – lint + typecheck + unit + integration
+
+### E2E auth strategy
+
+Email/OAuth flows are intentionally not automated in CI. For deterministic test auth, Sola includes **test-only** bypass endpoints:
+
+- `POST /api/test-auth/login`
+- `POST /api/test-auth/logout`
+
+These routes are enabled **only** when:
+
+- `NODE_ENV=test`
+- `E2E_AUTH_BYPASS=true`
+
+They set/clear a `sola-e2e-user` cookie that is consumed by `getCurrentAuthUser` in the same guarded test-only mode.
+
+This avoids production auth shortcuts while still enabling maintainable core journey automation.
