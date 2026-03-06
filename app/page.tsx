@@ -22,7 +22,7 @@ export default function HomePage() {
           href="/today"
           className="block w-full rounded-2xl border border-charcoal/15 bg-white/60 px-5 py-4 text-center text-base text-charcoal transition hover:bg-white"
         >
-          Continue today's reading
+          Continue today&apos;s reading
         </Link>
       </section>
     </div>

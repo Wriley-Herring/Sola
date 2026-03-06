@@ -44,7 +44,8 @@ const library: Record<string, PassageInsights> = {
   }
 };
 
-export async function generatePassageInsights(reference: string, _passageText: string): Promise<PassageInsights> {
+export async function generatePassageInsights(reference: string, passageText: string): Promise<PassageInsights> {
+  void passageText;
   await new Promise((resolve) => setTimeout(resolve, 150));
   const normalized = reference.trim().toLowerCase();
   return library[normalized] ?? fallbackInsight(reference);
