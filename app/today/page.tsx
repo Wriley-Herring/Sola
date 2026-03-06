@@ -4,12 +4,17 @@ import { EmptyState } from "@/components/EmptyState";
 import { InsightAccordion } from "@/components/InsightAccordion";
 import { ScriptureCard } from "@/components/ScriptureCard";
 import { getOrCreatePassageInsights } from "@/lib/insights/service";
-import { getCurrentReadingDay, getEnrollmentWithPlan } from "@/lib/repositories/reading-repository";
+import {
+  getCurrentDayReading,
+  getOrCreateMvpUser,
+  getUserActivePlan
+} from "@/lib/repositories/reading-repository";
 
 export default async function TodayPage() {
-  const enrollment = await getEnrollmentWithPlan();
+  const user = await getOrCreateMvpUser();
+  const active = await getUserActivePlan(user.id);
 
-  if (!enrollment) {
+  if (!active) {
     return (
       <EmptyState
         title="No active plan yet"
@@ -20,7 +25,7 @@ export default async function TodayPage() {
     );
   }
 
-  const currentDay = await getCurrentReadingDay(enrollment.id, enrollment.plan.id, enrollment.currentDay);
+  const currentDay = await getCurrentDayReading(active.plan.id, active.progress.current_day);
 
   if (!currentDay) {
     return (
@@ -33,23 +38,23 @@ export default async function TodayPage() {
     );
   }
 
-  const insights = await getOrCreatePassageInsights(currentDay.passageReference, currentDay.passageText);
+  const insights = await getOrCreatePassageInsights(currentDay.passage_reference, currentDay.passage_text);
 
   return (
     <div className="space-y-8 pt-2">
       <DailyReadingHeader
-        planTitle={enrollment.plan.title}
-        day={currentDay.dayNumber}
-        totalDays={enrollment.plan.duration}
-        reference={currentDay.passageReference}
+        planTitle={active.plan.title}
+        day={currentDay.day_number}
+        totalDays={active.plan.duration_days}
+        reference={currentDay.passage_reference}
       />
 
-      <ScriptureCard passageText={currentDay.passageText} />
+      <ScriptureCard passageText={currentDay.passage_text} />
       <InsightAccordion insights={insights} />
 
       <form action={completeCurrentDayAction}>
-        <input type="hidden" name="enrollmentId" value={enrollment.id} />
-        <input type="hidden" name="dayNumber" value={currentDay.dayNumber} />
+        <input type="hidden" name="progressId" value={active.progress.id} />
+        <input type="hidden" name="dayNumber" value={currentDay.day_number} />
         <button
           type="submit"
           className="rounded-2xl bg-olive px-5 py-3.5 text-base font-medium text-white transition hover:bg-olive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"

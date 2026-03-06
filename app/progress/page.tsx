@@ -1,11 +1,12 @@
 import { EmptyState } from "@/components/EmptyState";
 import { ProgressCard } from "@/components/ProgressCard";
-import { getEnrollmentWithPlan } from "@/lib/repositories/reading-repository";
+import { getOrCreateMvpUser, getUserActivePlan } from "@/lib/repositories/reading-repository";
 
 export default async function ProgressPage() {
-  const enrollment = await getEnrollmentWithPlan();
+  const user = await getOrCreateMvpUser();
+  const active = await getUserActivePlan(user.id);
 
-  if (!enrollment) {
+  if (!active) {
     return (
       <EmptyState
         title="No progress yet"
@@ -16,8 +17,8 @@ export default async function ProgressPage() {
     );
   }
 
-  const completedDays = enrollment.completedDays.length;
-  const completionPercentage = Math.round((completedDays / enrollment.plan.duration) * 100);
+  const completedDays = active.progress.completed_days.length;
+  const completionPercentage = Math.round((completedDays / active.plan.duration_days) * 100);
 
   return (
     <div className="space-y-8 pt-2">
@@ -27,10 +28,10 @@ export default async function ProgressPage() {
       </header>
 
       <ProgressCard
-        currentPlan={enrollment.plan.title}
+        currentPlan={active.plan.title}
         completionPercentage={completionPercentage}
         completedDays={completedDays}
-        totalDays={enrollment.plan.duration}
+        totalDays={active.plan.duration_days}
       />
     </div>
   );

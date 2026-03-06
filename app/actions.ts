@@ -1,74 +1,37 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { getDemoUser } from "@/lib/repositories/reading-repository";
+import {
+  enrollUserInPlan,
+  getOrCreateMvpUser,
+  getUserActivePlan,
+  markDayComplete
+} from "@/lib/repositories/reading-repository";
 
 export async function selectPlanAction(formData: FormData) {
-  const planId = String(formData.get("planId"));
+  const planId = String(formData.get("planId") ?? "");
   if (!planId) return;
 
-  const user = await getDemoUser();
+  const user = await getOrCreateMvpUser();
+  await enrollUserInPlan(user.id, planId);
 
-  await prisma.userPlanEnrollment.upsert({
-    where: {
-      userId_planId: {
-        userId: user.id,
-        planId
-      }
-    },
-    update: {
-      completed: false
-    },
-    create: {
-      userId: user.id,
-      planId,
-      currentDay: 1
-    }
-  });
-
+  revalidatePath("/plans");
   revalidatePath("/today");
   revalidatePath("/progress");
   revalidatePath("/profile");
 }
 
 export async function completeCurrentDayAction(formData: FormData) {
-  const enrollmentId = String(formData.get("enrollmentId"));
-  const dayNumber = Number(formData.get("dayNumber"));
+  const progressId = String(formData.get("progressId") ?? "");
+  const dayNumber = Number(formData.get("dayNumber") ?? NaN);
 
-  if (!enrollmentId || Number.isNaN(dayNumber)) return;
+  if (!progressId || Number.isNaN(dayNumber)) return;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.userProgressDay.upsert({
-      where: {
-        enrollmentId_dayNumber: {
-          enrollmentId,
-          dayNumber
-        }
-      },
-      update: {},
-      create: {
-        enrollmentId,
-        dayNumber
-      }
-    });
+  const user = await getOrCreateMvpUser();
+  const active = await getUserActivePlan(user.id);
+  if (!active) return;
 
-    const enrollment = await tx.userPlanEnrollment.findUniqueOrThrow({
-      where: { id: enrollmentId },
-      include: { plan: true }
-    });
-
-    const nextDay = dayNumber + 1;
-    const isCompleted = nextDay > enrollment.plan.duration;
-
-    await tx.userPlanEnrollment.update({
-      where: { id: enrollmentId },
-      data: {
-        currentDay: isCompleted ? enrollment.plan.duration : nextDay,
-        completed: isCompleted
-      }
-    });
-  });
+  await markDayComplete(progressId, dayNumber, active.plan.duration_days);
 
   revalidatePath("/today");
   revalidatePath("/progress");
