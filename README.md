@@ -41,6 +41,11 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+### Troubleshooting local setup
+
+- If `npm install` fails with `403 Forbidden`, verify your network/proxy settings and that your npm registry points to `https://registry.npmjs.org/`.
+- If npm prints an `Unknown env config "http-proxy"` warning, remove that env config from your shell profile or CI environment and retry installation.
+
 ## How Supabase is used
 
 - `lib/supabase/server.ts`: server-only Supabase client using service role key.
