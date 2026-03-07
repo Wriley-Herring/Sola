@@ -63,6 +63,13 @@ create table if not exists public.passage_insight_cache (
   updated_at timestamptz not null default now()
 );
 
+
+create index if not exists reading_plan_days_plan_day_idx on public.reading_plan_days(plan_id, day_number);
+create index if not exists reading_plan_days_normalized_ref_idx on public.reading_plan_days(normalized_ref);
+create index if not exists user_plan_enrollments_user_updated_idx on public.user_plan_enrollments(user_id, updated_at desc);
+create index if not exists user_progress_days_enrollment_idx on public.user_progress_days(enrollment_id, day_number);
+create index if not exists passage_insight_cache_generated_at_idx on public.passage_insight_cache(generated_at desc);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql

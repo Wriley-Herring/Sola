@@ -1,6 +1,7 @@
 import { logEvent } from "@/lib/observability/log";
+import { DATABASE_NOT_READY_PREFIX } from "@/lib/system/ensure-database-ready";
 
-const MISSING_SCHEMA_ERROR = "Sola database is not initialized. Run schema setup.";
+const MISSING_SCHEMA_ERROR = `${DATABASE_NOT_READY_PREFIX} Required schema objects are missing. Run schema setup.`;
 
 type PostgrestLikeError = {
   code?: string;
@@ -9,7 +10,16 @@ type PostgrestLikeError = {
 
 function isSchemaCacheMissingTableError(error: PostgrestLikeError | null) {
   if (!error) return false;
-  return error.code === "PGRST205" && error.message?.includes("schema cache");
+
+  const message = error.message?.toLowerCase() ?? "";
+
+  return (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    message.includes("schema cache") ||
+    message.includes("could not find the table") ||
+    message.includes("relation")
+  );
 }
 
 export function mapSupabaseError(error: PostgrestLikeError | null): Error | null {
@@ -20,7 +30,7 @@ export function mapSupabaseError(error: PostgrestLikeError | null): Error | null
     return new Error(MISSING_SCHEMA_ERROR);
   }
 
-  return new Error(error.message ?? "Supabase query failed.");
+  return new Error("Database query failed. See server logs for details.");
 }
 
 export function throwIfSupabaseError(error: PostgrestLikeError | null): void {

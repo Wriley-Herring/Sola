@@ -63,6 +63,20 @@ export async function enrollUserInPlan(userId: string, planId: string) {
   logEvent("plan_selected", { userId, planId });
 }
 
+type EnrollmentWithPlan = UserPlanEnrollment & {
+  reading_plans: ReadingPlan | ReadingPlan[] | null;
+};
+
+function extractPlan(enrollment: EnrollmentWithPlan): ReadingPlan {
+  const plan = Array.isArray(enrollment.reading_plans) ? enrollment.reading_plans[0] : enrollment.reading_plans;
+
+  if (!plan) {
+    throw new Error("Enrollment is missing its reading plan relationship.");
+  }
+
+  return plan;
+}
+
 export async function getUserActivePlan(userId: string) {
   const supabase = createServerSupabaseClient();
 
@@ -72,7 +86,7 @@ export async function getUserActivePlan(userId: string) {
     .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .limit(1)
-    .maybeSingle();
+    .maybeSingle<EnrollmentWithPlan>();
 
   throwIfSupabaseError(error);
   if (!data) return null;
@@ -96,7 +110,7 @@ export async function getUserActivePlan(userId: string) {
       updated_at: data.updated_at,
       completed_days: (progressDays ?? []).map((row) => row.day_number)
     },
-    plan: Array.isArray(data.reading_plans) ? data.reading_plans[0] : data.reading_plans
+    plan: extractPlan(data)
   };
 }
 

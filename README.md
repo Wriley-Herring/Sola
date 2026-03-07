@@ -1,106 +1,116 @@
-# Sola (Supabase + Next.js)
+# Sola
 
-Sola is a context-first Bible study app built with Next.js App Router and Supabase.
+Sola is a simple app with one core flow:
 
-## Stack
+1. User signs in.
+2. User chooses a reading plan.
+3. User opens today’s reading.
+4. App returns cached AI insights (or generates and caches once).
+5. User marks progress.
 
-- Next.js 14 App Router + TypeScript
-- Tailwind CSS
-- Supabase Postgres + Supabase Auth
-- `@supabase/ssr` + `@supabase/supabase-js`
-- OpenAI Node SDK (`openai`) for passage insights cache generation
+This repository now treats database setup as a **hard prerequisite**, not an optional runtime assumption.
+
+## Root-cause diagnosis (why the app failed end-to-end)
+
+The previous setup mixed incompatible database models:
+
+- Legacy migrations created `user_progress`, `reading_plans.duration_days`, and `reading_plan_days.reading_plan_id`.
+- Runtime code queried `user_plan_enrollments`, `user_progress_days`, `reading_plans.duration`, and `reading_plan_days.plan_id`.
+- Result: production could be “migrated” but still structurally incompatible with runtime queries, causing schema-cache/table-not-found failures.
+
+Additional operational failures:
+
+- Seed verification was not enforced at runtime.
+- Deployments could point app env vars at one Supabase project while DB bootstrap targeted another.
+- Failures surfaced as generic runtime exceptions instead of explicit readiness diagnostics.
 
 ## Required environment variables
 
-Create `.env.local` for local development:
+Copy and edit env file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Then set:
+Required:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_DB_URL` (direct Postgres connection string used for schema/seed bootstrap)
-- `SITE_URL` (server-only canonical app URL; used for auth redirect links)
-- `SUPABASE_SERVICE_ROLE_KEY` (server-only, only needed for privileged admin scripts; not used in normal app auth flows)
-- `OPENAI_API_KEY` (server-only)
+- `OPENAI_API_KEY`
 
-## Auth wiring summary
+Required for schema/seed bootstrapping in deploy pipelines:
 
-### Route model
+- `SUPABASE_DB_URL`
 
-Public routes:
+Recommended:
 
-- `/`
-- `/login`
-- `/auth/callback`
+- `SITE_URL` (for auth callback generation)
+- `HEALTHCHECK_URL` (for deployment verify script)
 
-Protected routes:
+## Create and initialize Supabase
 
-- `/today`
-- `/plans`
-- `/progress`
-- `/profile`
+### 1) Create project
 
-### How auth works
+Create a Supabase project and copy:
 
-- `middleware.ts` performs optimistic cookie/session route checks and redirects unauthenticated users to `/login`.
-- Real auth checks happen in server code (`requireUser`, `requireAuthUser`, `requireAppUserProfile`).
-- App profile provisioning is done server-side and idempotent via `upsert` into `public."User"`.
-- Login supports email magic link as primary path plus optional Google OAuth.
-- Callback route exchanges auth code for session and redirects to `/today` (or `next` query param).
+- Project URL (`https://<project-ref>.supabase.co`)
+- Publishable (anon) key
+- Postgres connection string
 
-### Supabase client usage
+### 2) Apply canonical schema
 
-- `lib/supabase/server.ts`: server component/action/route handler client with cookie support.
-- `lib/supabase/client.ts`: browser client factory for client components when needed.
-- `lib/supabase/middleware.ts`: middleware session refresh helper.
+```bash
+psql "$SUPABASE_DB_URL" -f supabase/schema.sql
+```
 
-## Database setup (Supabase SQL)
+### 3) Apply deterministic seed data
 
-Initialize schema and seed data from the repo root:
+```bash
+psql "$SUPABASE_DB_URL" -f supabase/seed.sql
+```
 
-1. `psql "$SUPABASE_DB_URL" -f supabase/schema.sql`
-2. `psql "$SUPABASE_DB_URL" -f supabase/seed.sql`
+Both scripts are idempotent.
 
-These scripts are idempotent and safe to rerun during provisioning and CI validation.
+### 4) (Legacy deployment fix) Apply migration sequence
 
-## Profile table model
+If your environment was previously deployed from old migrations, apply:
 
-`public."User"` stores app-specific profile data used by the app auth profile layer:
+```bash
+psql "$SUPABASE_DB_URL" -f supabase/migrations/001_init.sql
+psql "$SUPABASE_DB_URL" -f supabase/migrations/002_passage_insight_ai_cache.sql
+psql "$SUPABASE_DB_URL" -f supabase/migrations/003_auth_profiles_and_rls.sql
+psql "$SUPABASE_DB_URL" -f supabase/migrations/004_stabilize_foundation.sql
+```
 
-- `id text primary key`
-- `email text unique not null`
-- `name text not null`
-- `createdAt timestamp not null default now()`
+`004_stabilize_foundation.sql` reconciles legacy structure into the canonical runtime model.
 
-## RLS enforcement
+## Verify you are targeting the correct Supabase project
 
-RLS is enabled for user-owned tables and enforced by policies:
+1. Confirm `NEXT_PUBLIC_SUPABASE_URL` project ref matches `SUPABASE_DB_URL` host ref.
+2. Run:
 
-- Ensure profile table access policy for `public."User"` allows the authenticated user to upsert/select their own row by `id` in your deployment.
-- Keep user-owned progress tables protected by user identity, and shared content tables globally readable.
+```bash
+npm run verify:env
+```
 
-## Magic link + OAuth configuration notes
+3. Check health endpoint response:
 
-In Supabase Auth settings:
+```bash
+curl -s http://localhost:3000/api/health | jq
+```
 
-- Add your app URL(s) to **Site URL** / **Redirect URLs**.
-- Set `SITE_URL` in your app environment so magic-link and OAuth redirects use your deployed domain.
-- Include callback path, e.g.:
-  - `http://localhost:3000/auth/callback`
-  - `https://your-domain.com/auth/callback`
-- Configure Google provider in Supabase if you want Google sign-in enabled.
+Expect:
 
-## Automated schema bootstrap on deployment
+```json
+{
+  "status": "ok",
+  "databaseReady": true,
+  "missingTables": [],
+  "missingSeedData": []
+}
+```
 
-- `npm run build` now runs `npm run db:bootstrap` before `next build`.
-- `db:bootstrap` applies `supabase/schema.sql` and `supabase/seed.sql` using `SUPABASE_DB_URL`.
-- On Vercel, if `SUPABASE_DB_URL` is missing, the build fails fast so an uninitialized database cannot be deployed.
-
-## Run locally
+## Run the app
 
 ```bash
 npm install
@@ -109,72 +119,10 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## AI insight generation + cache behavior
+## Deployment safety commands
 
-- Generator module: `lib/ai/generate-passage-insights.ts`
-- Model currently used: `gpt-5-mini`
-- Prompt/version metadata written to cache rows: `model`, `prompt_version`
+- `npm run db:bootstrap` – applies `supabase/schema.sql` + `supabase/seed.sql`.
+- `npm run verify` – env validation, lint, typecheck, tests, and optional remote healthcheck.
+- `npm run build` – runs bootstrap before build so deploys fail fast if database bootstrap fails.
 
-Cache key is normalized passage reference (`normalized_reference`) with a unique constraint.
-
-Flow on Today page:
-
-1. Normalize passage reference.
-2. Query `passage_insight_cache`.
-3. If found, return cached payload.
-4. If missing, generate insights server-side.
-5. Insert generated insights into cache with model/version metadata.
-6. If insert races another request, recover via unique-constraint retry/select.
-
-This keeps passage insights globally shared while user progress remains user-owned.
-
-## Testing strategy and harness
-
-Sola uses a layered test strategy to keep feedback fast while covering production-critical flows.
-
-### Test suites
-
-- **Unit (`tests/unit`)**: pure logic and high-signal component behavior.
-  - reference normalization
-  - AI payload validation helpers
-  - middleware route classification logic
-  - empty-state rendering behavior
-- **Integration (`tests/integration`, `tests/actions`, `tests/middleware`)**: service/repository/server action behavior with mocked Supabase/OpenAI seams.
-  - insight cache hit/miss + duplicate insert recovery
-  - plan enrollment and progress completion behavior
-  - middleware redirects + cookie mutation behavior
-  - server action auth enforcement and revalidation side effects
-- **E2E (`tests/e2e`)**: route protection + core user journey using Playwright.
-
-### Test commands
-
-- `npm run test` – watch-mode Vitest
-- `npm run test:unit` – unit tests
-- `npm run test:integration` – integration + middleware + actions
-- `npm run test:ci` – full Vitest run with coverage
-- `npm run test:e2e` – Playwright suite
-- `npm run typecheck` – TypeScript strict check
-- `npm run verify` – lint + typecheck + unit + integration
-
-### E2E auth strategy
-
-Email/OAuth flows are intentionally not automated in CI. For deterministic test auth, Sola includes **test-only** bypass endpoints:
-
-- `POST /api/test-auth/login`
-- `POST /api/test-auth/logout`
-
-These routes are enabled **only** when:
-
-- `NODE_ENV=test`
-- `E2E_AUTH_BYPASS=true`
-
-They set/clear a `sola-e2e-user` cookie that is consumed by `getCurrentAuthUser` in the same guarded test-only mode.
-
-This avoids production auth shortcuts while still enabling maintainable core journey automation.
-
-
-## Production safety checks
-
-- `npm run verify` runs lint + typecheck + unit + integration suites.
-- Supabase schema-cache errors are translated into: `Sola database is not initialized. Run schema setup.`
-- `next build` fails fast if required Supabase env vars are missing.
+See `docs/production-checklist.md` for release procedure.

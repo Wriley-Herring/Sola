@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { logEvent } from "@/lib/observability/log";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
+import { ensureDatabaseReady } from "@/lib/system/ensure-database-ready";
 
 export type AppUserProfile = {
   id: string;
@@ -122,6 +123,8 @@ export async function getOrCreateAppUserProfile(user: { id: string; email?: stri
 }
 
 export async function requireAppUserProfile() {
+  await ensureDatabaseReady();
+
   const user = await requireAuthUser();
   const profile = await getOrCreateAppUserProfile(user);
 
