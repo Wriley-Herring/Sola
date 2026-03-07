@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run db:bootstrap && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -13,7 +13,8 @@
     "test:integration": "vitest run tests/integration tests/middleware tests/actions",
     "test:e2e": "playwright test",
     "test:ci": "vitest run --coverage",
-    "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run test:integration"
+    "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run test:integration",
+    "db:bootstrap": "node scripts/bootstrap-db.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
