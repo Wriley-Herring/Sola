@@ -60,6 +60,7 @@ export async function getOrCreateAppUserProfile(user: { id: string; email?: stri
   const nameFromMeta = typeof user.user_metadata?.name === "string" ? user.user_metadata.name : null;
   const fallbackName = email.split("@")[0] || "Sola User";
   const name = fullNameFromMeta ?? nameFromMeta ?? fallbackName;
+  const nowIso = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("User")
@@ -67,7 +68,8 @@ export async function getOrCreateAppUserProfile(user: { id: string; email?: stri
       {
         id: user.id,
         email,
-        name
+        name,
+        updatedAt: nowIso
       },
       { onConflict: "id" }
     )
