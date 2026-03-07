@@ -1,5 +1,4 @@
 import { execFileSync } from "node:child_process";
-import { Prisma, PrismaClient } from "@prisma/client";
 
 const DB_URL_CANDIDATES = ["POSTGRES_URL_NON_POOLING", "POSTGRES_URL", "POSTGRES_PRISMA_URL"];
 const REQUIRED_TABLES = [
@@ -30,78 +29,85 @@ function resolveConnectionString() {
   );
 }
 
-function runSql(connectionString, file) {
-  console.log(`[db:bootstrap] Applying ${file}...`);
-  execFileSync("npx", ["prisma", "db", "execute", `--url=${connectionString}`, "--file", file], {
-    stdio: "inherit"
+function runPrismaDbExecute(args, options = {}) {
+  execFileSync("npx", ["prisma", "db", "execute", ...args], {
+    stdio: "inherit",
+    ...options
   });
 }
 
-async function verifyBootstrap(connectionString) {
-  console.log("[db:bootstrap] Verifying required tables...");
-  const prisma = new PrismaClient({ datasourceUrl: connectionString });
-
-  try {
-    const tableRows = await prisma.$queryRaw`
-      select table_name
-      from information_schema.tables
-      where table_schema = 'public'
-    `;
-
-    const existingTables = new Set(tableRows.map((row) => row.table_name));
-    const missingTables = REQUIRED_TABLES.filter((name) => !existingTables.has(name));
-
-    if (missingTables.length > 0) {
-      throw new Error(`[db:bootstrap] Missing required tables after bootstrap: ${missingTables.join(", ")}`);
-    }
-
-    console.log("[db:bootstrap] Required tables verified.");
-    console.log("[db:bootstrap] Verifying baseline reading plan seed rows...");
-
-    const slugRows = await prisma.$queryRaw`
-      select slug
-      from reading_plans
-      where slug in (${Prisma.join(REQUIRED_PLAN_SLUGS)})
-    `;
-
-    const existingSlugs = new Set(slugRows.map((row) => row.slug));
-    const missingSlugs = REQUIRED_PLAN_SLUGS.filter((slug) => !existingSlugs.has(slug));
-
-    if (missingSlugs.length > 0) {
-      throw new Error(`[db:bootstrap] Missing baseline reading plans after seed: ${missingSlugs.join(", ")}`);
-    }
-
-    console.log("[db:bootstrap] Baseline seed rows verified.");
-  } finally {
-    await prisma.$disconnect();
-  }
+function runSqlFile(connectionString, file) {
+  console.log(`[db:bootstrap] Applying ${file}...`);
+  runPrismaDbExecute([`--url=${connectionString}`, "--file", file]);
 }
 
-async function main() {
+function runSqlStatement(connectionString, sql) {
+  runPrismaDbExecute([`--url=${connectionString}`, "--stdin"], { input: sql });
+}
+
+function verifyBootstrap(connectionString) {
+  console.log("[db:bootstrap] Verifying required tables...");
+
+  runSqlStatement(
+    connectionString,
+    `DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM unnest(ARRAY[${REQUIRED_TABLES.map((table) => `'${table}'`).join(", ")}]) AS required_table
+    WHERE to_regclass('public.' || required_table) IS NULL
+  ) THEN
+    RAISE EXCEPTION '[db:bootstrap] Missing required tables after bootstrap.';
+  END IF;
+END
+$$;`
+  );
+
+  console.log("[db:bootstrap] Required tables verified.");
+  console.log("[db:bootstrap] Verifying baseline reading plan seed rows...");
+
+  runSqlStatement(
+    connectionString,
+    `DO $$
+DECLARE
+  expected_slugs text[] := ARRAY[${REQUIRED_PLAN_SLUGS.map((slug) => `'${slug}'`).join(", ")}];
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM unnest(expected_slugs) AS slug
+    WHERE NOT EXISTS (SELECT 1 FROM reading_plans WHERE reading_plans.slug = slug)
+  ) THEN
+    RAISE EXCEPTION '[db:bootstrap] Missing baseline reading plans after seed.';
+  END IF;
+END
+$$;`
+  );
+
+  console.log("[db:bootstrap] Baseline seed rows verified.");
+}
+
+function main() {
   console.log("[db:bootstrap] Starting database bootstrap.");
   const { value: connectionString } = resolveConnectionString();
 
   console.log("[db:bootstrap] Stage 1/4: connectivity check.");
-  const prisma = new PrismaClient({ datasourceUrl: connectionString });
-  try {
-    await prisma.$queryRaw`select 1`;
-  } finally {
-    await prisma.$disconnect();
-  }
+  runSqlStatement(connectionString, "select 1;");
 
   console.log("[db:bootstrap] Stage 2/4: apply schema SQL.");
-  runSql(connectionString, "supabase/schema.sql");
+  runSqlFile(connectionString, "supabase/schema.sql");
 
   console.log("[db:bootstrap] Stage 3/4: apply seed SQL.");
-  runSql(connectionString, "supabase/seed.sql");
+  runSqlFile(connectionString, "supabase/seed.sql");
 
   console.log("[db:bootstrap] Stage 4/4: post-bootstrap verification.");
-  await verifyBootstrap(connectionString);
+  verifyBootstrap(connectionString);
 
   console.log("[db:bootstrap] Completed successfully. Database schema and baseline seed are ready.");
 }
 
-main().catch((error) => {
+try {
+  main();
+} catch (error) {
   console.error(error instanceof Error ? error.message : "[db:bootstrap] Unexpected bootstrap error.");
   process.exit(1);
-});
+}
