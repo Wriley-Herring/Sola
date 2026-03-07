@@ -46,7 +46,7 @@ export default async function TodayPage() {
       <DailyReadingHeader
         planTitle={active.plan.title}
         day={currentDay.day_number}
-        totalDays={active.plan.duration_days}
+        totalDays={active.plan.duration}
         reference={currentDay.passage_reference}
       />
 

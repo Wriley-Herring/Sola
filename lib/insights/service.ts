@@ -1,5 +1,7 @@
-import { generatePassageInsights } from "@/lib/ai/generate-passage-insights";
+import { MODEL, PROMPT_VERSION, generatePassageInsights } from "@/lib/ai/generate-passage-insights";
+import { logEvent } from "@/lib/observability/log";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { throwIfSupabaseError } from "@/lib/supabase/errors";
 import type { PassageInsights } from "@/types/insights";
 
 export const normalizeReference = (reference: string) => reference.replace(/\s+/g, " ").trim().toLowerCase();
@@ -32,17 +34,16 @@ export async function getOrCreatePassageInsights(reference: string, passageText:
     .eq("normalized_reference", normalizedReference)
     .maybeSingle();
 
-  if (cacheError) throw cacheError;
+  throwIfSupabaseError(cacheError);
   if (cached) {
-    console.info("cache_hit", { normalizedReference });
+    logEvent("cache_hit", { normalizedReference });
     return mapInsightRow(cached);
   }
 
-  console.info("cache_miss", { normalizedReference });
+  logEvent("cache_miss", { normalizedReference });
 
   try {
     const generated = await generatePassageInsights(reference, passageText);
-    console.info("insight_generated", { normalizedReference });
 
     const { error: insertError } = await supabase.from("passage_insight_cache").insert({
       normalized_reference: normalizedReference,
@@ -51,11 +52,14 @@ export async function getOrCreatePassageInsights(reference: string, passageText:
       literary_context: generated.literaryContext,
       key_themes: generated.keyThemes,
       reflection_question: generated.reflectionQuestion,
-      model: "gpt-5-mini",
-      prompt_version: "v1"
+      model: MODEL,
+      prompt_version: PROMPT_VERSION
     });
 
-    if (!insertError) return generated;
+    if (!insertError) {
+      logEvent("insight_generated", { normalizedReference, model: MODEL, promptVersion: PROMPT_VERSION });
+      return generated;
+    }
 
     if (insertError.code === "23505") {
       const { data: retried, error: retryError } = await supabase
@@ -64,15 +68,20 @@ export async function getOrCreatePassageInsights(reference: string, passageText:
         .eq("normalized_reference", normalizedReference)
         .single();
 
-      if (retryError) throw retryError;
-
-      console.info("duplicate_insert_recovered", { normalizedReference });
+      throwIfSupabaseError(retryError);
+      if (!retried) {
+        throw new Error("Insight cache row missing after duplicate insert recovery.");
+      }
       return mapInsightRow(retried);
     }
 
-    throw insertError;
+    throwIfSupabaseError(insertError);
+    return generated;
   } catch (error) {
-    console.error("generation_error", { normalizedReference, error });
+    logEvent("generation_error", {
+      normalizedReference,
+      message: error instanceof Error ? error.message : "Unknown generation error"
+    });
     throw error;
   }
 }

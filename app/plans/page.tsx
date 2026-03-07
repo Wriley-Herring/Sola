@@ -25,7 +25,7 @@ export default async function PlansPage() {
       ) : (
         <section className="grid gap-4">
           {plans.map((plan) => (
-            <PlanCard key={plan.id} id={plan.id} title={plan.title} description={plan.description} duration={plan.duration_days} />
+            <PlanCard key={plan.id} id={plan.id} title={plan.title} description={plan.description} duration={plan.duration} />
           ))}
         </section>
       )}

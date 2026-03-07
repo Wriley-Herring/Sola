@@ -25,41 +25,38 @@ describe("reading repository", () => {
     await enrollUserInPlan("user-1", "plan-1");
 
     expect(upsertChain.upsert).toHaveBeenCalled();
-    expect(deleteChain.neq).toHaveBeenCalledWith("reading_plan_id", "plan-1");
+    expect(deleteChain.neq).toHaveBeenCalledWith("plan_id", "plan-1");
   });
 
-  it("markDayComplete is idempotent and advances day", async () => {
-    const selectChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn(async () => ({ data: { completed_days: [1] }, error: null }))
+  it("markDayComplete upserts progress day and advances day", async () => {
+    const progressInsertChain = {
+      upsert: vi.fn(async () => ({ error: null }))
     };
 
     const updateChain = {
       update: vi.fn().mockReturnThis(),
-      eq: vi.fn()
+      eq: vi.fn().mockReturnThis()
     };
-    updateChain.eq.mockImplementation(function () {
-      if (updateChain.eq.mock.calls.length >= 2) {
-        return Promise.resolve({ error: null });
-      }
-      return this;
-    });
+    updateChain.eq = vi
+      .fn()
+      .mockReturnValueOnce(updateChain)
+      .mockResolvedValueOnce({ error: null });
 
-    mockSupabase.from.mockReturnValueOnce(selectChain).mockReturnValueOnce(updateChain);
+    mockSupabase.from.mockReturnValueOnce(progressInsertChain).mockReturnValueOnce(updateChain);
 
     const { markDayComplete } = await import("@/lib/repositories/reading-repository");
-    await markDayComplete("user-1", "progress-1", 1, 30);
+    await markDayComplete("user-1", "enroll-1", 1, 30);
 
-    expect(updateChain.update).toHaveBeenCalledWith({ completed_days: [1], current_day: 2 });
+    expect(progressInsertChain.upsert).toHaveBeenCalledWith({ enrollment_id: "enroll-1", day_number: 1 }, { onConflict: "enrollment_id,day_number" });
+    expect(updateChain.update).toHaveBeenCalledWith({ current_day: 2, completed: false });
   });
 
-  it("getUserActivePlan returns null when user_progress is missing from schema cache", async () => {
+  it("getUserActivePlan throws developer-friendly error when schema is missing", async () => {
     const maybeSingle = vi.fn(async () => ({
       data: null,
       error: {
         code: "PGRST205",
-        message: "Could not find the table 'public.user_progress' in the schema cache"
+        message: "Could not find the table 'public.user_plan_enrollments' in the schema cache"
       }
     }));
 
@@ -74,6 +71,6 @@ describe("reading repository", () => {
     mockSupabase.from.mockReturnValueOnce(queryChain);
 
     const { getUserActivePlan } = await import("@/lib/repositories/reading-repository");
-    await expect(getUserActivePlan("user-1")).resolves.toBeNull();
+    await expect(getUserActivePlan("user-1")).rejects.toThrow("Sola database is not initialized. Run schema setup.");
   });
 });

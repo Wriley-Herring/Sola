@@ -20,7 +20,7 @@ export default async function ProgressPage() {
   }
 
   const completedDays = active.progress.completed_days.length;
-  const completionPercentage = Math.round((completedDays / active.plan.duration_days) * 100);
+  const completionPercentage = Math.round((completedDays / active.plan.duration) * 100);
 
   return (
     <div className="space-y-8 pt-2">
@@ -33,7 +33,7 @@ export default async function ProgressPage() {
         currentPlan={active.plan.title}
         completionPercentage={completionPercentage}
         completedDays={completedDays}
-        totalDays={active.plan.duration_days}
+        totalDays={active.plan.duration}
       />
     </div>
   );

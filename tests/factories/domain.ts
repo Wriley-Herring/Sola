@@ -4,12 +4,12 @@ export const makeUser = (overrides: Partial<{ id: string; email: string }> = {})
   ...overrides
 });
 
-export const makePlan = (overrides: Partial<{ id: string; slug: string; title: string; description: string; duration_days: number }> = {}) => ({
+export const makePlan = (overrides: Partial<{ id: string; slug: string; title: string; description: string; duration: number }> = {}) => ({
   id: "plan-1",
   slug: "gospel-of-mark",
   title: "Gospel of Mark",
   description: "30 day reading plan",
-  duration_days: 30,
+  duration: 30,
   ...overrides
 });
 
