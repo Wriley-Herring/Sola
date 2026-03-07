@@ -8,121 +8,101 @@ Sola is a simple app with one core flow:
 4. App returns cached AI insights (or generates and caches once).
 5. User marks progress.
 
-This repository now treats database setup as a **hard prerequisite**, not an optional runtime assumption.
+This repository treats database readiness as a hard prerequisite.
 
-## Root-cause diagnosis (why the app failed end-to-end)
+## Official Vercel + Supabase environment contract
 
-The previous setup mixed incompatible database models:
+When using the Vercel Supabase Marketplace integration, Vercel provides:
 
-- Legacy migrations created `user_progress`, `reading_plans.duration_days`, and `reading_plan_days.reading_plan_id`.
-- Runtime code queried `user_plan_enrollments`, `user_progress_days`, `reading_plans.duration`, and `reading_plan_days.plan_id`.
-- Result: production could be “migrated” but still structurally incompatible with runtime queries, causing schema-cache/table-not-found failures.
+- `POSTGRES_URL`
+- `POSTGRES_PRISMA_URL`
+- `POSTGRES_URL_NON_POOLING`
+- `POSTGRES_USER`
+- `POSTGRES_HOST`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_DATABASE`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_JWT_SECRET`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL`
 
-Additional operational failures:
+## Which variables Sola uses
 
-- Seed verification was not enforced at runtime.
-- Deployments could point app env vars at one Supabase project while DB bootstrap targeted another.
-- Failures surfaced as generic runtime exceptions instead of explicit readiness diagnostics.
+### Browser/client auth
 
-## Required environment variables
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-Copy and edit env file:
+### Server auth/admin
+
+- Cookie-backed auth client: `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- Service/admin client (when needed): `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
+
+### Database bootstrap
+
+`npm run db:bootstrap` resolves DB URL in this order:
+
+1. `POSTGRES_URL_NON_POOLING`
+2. `POSTGRES_URL`
+3. `POSTGRES_PRISMA_URL`
+
+`SUPABASE_DB_URL` is **not required**.
+
+## Local setup
 
 ```bash
 cp .env.example .env.local
+npm install
 ```
 
-Required:
+Minimum required runtime variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
 
-Required for schema/seed bootstrapping in deploy pipelines:
+## Bootstrap flow
 
-- `SUPABASE_DB_URL`
-
-Recommended:
-
-- `SITE_URL` (for auth callback generation)
-- `HEALTHCHECK_URL` (for deployment verify script)
-
-## Create and initialize Supabase
-
-### 1) Create project
-
-Create a Supabase project and copy:
-
-- Project URL (`https://<project-ref>.supabase.co`)
-- Publishable (anon) key
-- Postgres connection string
-
-### 2) Apply canonical schema
+Run:
 
 ```bash
-psql "$SUPABASE_DB_URL" -f supabase/schema.sql
+npm run db:bootstrap
 ```
 
-### 3) Apply deterministic seed data
+The bootstrap script is idempotent and will:
 
-```bash
-psql "$SUPABASE_DB_URL" -f supabase/seed.sql
-```
+1. Resolve DB URL from Vercel-compatible variables.
+2. Check DB connectivity.
+3. Apply `supabase/schema.sql`.
+4. Apply `supabase/seed.sql`.
+5. Verify required tables exist.
+6. Verify baseline `reading_plans` rows exist.
+7. Exit non-zero with diagnostics if any stage fails.
 
-Both scripts are idempotent.
-
-### 4) (Legacy deployment fix) Apply migration sequence
-
-If your environment was previously deployed from old migrations, apply:
-
-```bash
-psql "$SUPABASE_DB_URL" -f supabase/migrations/001_init.sql
-psql "$SUPABASE_DB_URL" -f supabase/migrations/002_passage_insight_ai_cache.sql
-psql "$SUPABASE_DB_URL" -f supabase/migrations/003_auth_profiles_and_rls.sql
-psql "$SUPABASE_DB_URL" -f supabase/migrations/004_stabilize_foundation.sql
-```
-
-`004_stabilize_foundation.sql` reconciles legacy structure into the canonical runtime model.
-
-## Verify you are targeting the correct Supabase project
-
-1. Confirm `NEXT_PUBLIC_SUPABASE_URL` project ref matches `SUPABASE_DB_URL` host ref.
-2. Run:
+## Verification
 
 ```bash
 npm run verify:env
+npm run verify
 ```
 
-3. Check health endpoint response:
+## Deployment readiness rule
 
-```bash
-curl -s http://localhost:3000/api/health | jq
-```
+A deployment is not considered healthy unless:
 
-Expect:
-
-```json
-{
-  "status": "ok",
-  "databaseReady": true,
-  "missingTables": [],
-  "missingSeedData": []
-}
-```
+1. Required environment variables are present.
+2. Schema bootstrap succeeds.
+3. Seed verification succeeds.
+4. Healthcheck passes (`/api/health` returns `status: "ok"`).
 
 ## Run the app
 
 ```bash
-npm install
 npm run dev
 ```
 
 Open `http://localhost:3000`.
-
-## Deployment safety commands
-
-- `npm run db:bootstrap` – applies `supabase/schema.sql` + `supabase/seed.sql`.
-- `npm run verify` – env validation, lint, typecheck, tests, and optional remote healthcheck.
-- `npm run build` – runs bootstrap before build so deploys fail fast if database bootstrap fails.
-
-See `docs/production-checklist.md` for release procedure.

@@ -10,7 +10,7 @@ vi.mock("@supabase/ssr", () => ({
 describe("updateSession", () => {
   it("applies cookies from Supabase setAll callback", async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "pk";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "pk";
 
     createServerClient.mockImplementation((_url, _key, options) => {
       options.cookies.setAll([{ name: "sb", value: "token", options: { path: "/" } }]);

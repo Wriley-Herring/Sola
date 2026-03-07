@@ -3,11 +3,16 @@
 ## 1) Environment integrity
 
 - [ ] `NEXT_PUBLIC_SUPABASE_URL` points to intended production project.
-- [ ] `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is present.
+- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` is present.
+- [ ] `SUPABASE_URL` is present and matches the intended project.
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` is present.
+- [ ] At least one DB bootstrap variable is present (preferred order):
+  - [ ] `POSTGRES_URL_NON_POOLING`
+  - [ ] `POSTGRES_URL`
+  - [ ] `POSTGRES_PRISMA_URL`
 - [ ] `OPENAI_API_KEY` is present.
-- [ ] `SUPABASE_DB_URL` points to the **same** project ref as `NEXT_PUBLIC_SUPABASE_URL`.
-- [ ] `SITE_URL` set to production domain.
-- [ ] `HEALTHCHECK_URL` set to `https://<domain>/api/health`.
+- [ ] `SITE_URL` is set to production domain.
+- [ ] `HEALTHCHECK_URL` is set to `https://<domain>/api/health`.
 
 Run:
 
@@ -15,19 +20,19 @@ Run:
 npm run verify:env
 ```
 
-## 2) Database compatibility
+## 2) Database bootstrap integrity
 
-Apply canonical schema and seed:
+Run idempotent bootstrap (schema + seed + verification):
 
 ```bash
-psql "$SUPABASE_DB_URL" -f supabase/schema.sql
-psql "$SUPABASE_DB_URL" -f supabase/seed.sql
+npm run db:bootstrap
 ```
 
-For legacy environments, also apply migration stabilization:
+Optional manual SQL application:
 
 ```bash
-psql "$SUPABASE_DB_URL" -f supabase/migrations/004_stabilize_foundation.sql
+psql "$POSTGRES_URL_NON_POOLING" -f supabase/schema.sql
+psql "$POSTGRES_URL_NON_POOLING" -f supabase/seed.sql
 ```
 
 ## 3) Application quality gate
@@ -57,8 +62,11 @@ Healthy payload:
 }
 ```
 
-If degraded:
+## Deployment-readiness rule
 
-- inspect `missingTables` and `missingSeedData`
-- re-apply `schema.sql` then `seed.sql`
-- confirm Supabase project ref alignment
+A deployment is not healthy unless all of the following are true:
+
+1. Required environment variables are present.
+2. Schema bootstrap succeeds.
+3. Seed verification succeeds.
+4. Healthcheck returns `status: "ok"`.
