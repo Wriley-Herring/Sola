@@ -62,18 +62,47 @@ export async function getOrCreateAppUserProfile(user: { id: string; email?: stri
   const name = fullNameFromMeta ?? nameFromMeta ?? fallbackName;
   const nowIso = new Date().toISOString();
 
+  const selectFields = "id, email, name, createdAt";
+
+  const { data: existingById, error: existingByIdError } = await supabase
+    .from("User")
+    .select(selectFields)
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (existingByIdError) {
+    throw existingByIdError;
+  }
+
+  if (existingById) {
+    return existingById as AppUserProfile;
+  }
+
+  const { data: existingByEmail, error: existingByEmailError } = await supabase
+    .from("User")
+    .select(selectFields)
+    .eq("email", email)
+    .maybeSingle();
+
+  if (existingByEmailError) {
+    throw existingByEmailError;
+  }
+
+  if (existingByEmail) {
+    return existingByEmail as AppUserProfile;
+  }
+
   const { data, error } = await supabase
     .from("User")
-    .upsert(
+    .insert(
       {
         id: user.id,
         email,
         name,
         updatedAt: nowIso
-      },
-      { onConflict: "id" }
+      }
     )
-    .select("id, email, name, createdAt")
+    .select(selectFields)
     .single();
 
   if (error) {
