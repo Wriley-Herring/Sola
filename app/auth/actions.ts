@@ -7,7 +7,10 @@ import { getOrCreateAppUserProfile } from "@/lib/auth/get-current-user";
 
 function getOrigin() {
   const configuredSiteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    process.env.SITE_URL ??
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+    process.env.VERCEL_URL ??
+    process.env.NEXT_PUBLIC_SITE_URL;
 
   if (configuredSiteUrl) {
     const normalizedSiteUrl = configuredSiteUrl.startsWith("http")

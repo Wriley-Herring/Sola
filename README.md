@@ -22,6 +22,7 @@ Then set:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SITE_URL` (server-only canonical app URL; used for auth redirect links)
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only, only needed for privileged admin scripts; not used in normal app auth flows)
 - `OPENAI_API_KEY` (server-only)
 
@@ -88,6 +89,7 @@ RLS is enabled for user-owned tables and enforced by policies:
 In Supabase Auth settings:
 
 - Add your app URL(s) to **Site URL** / **Redirect URLs**.
+- Set `SITE_URL` in your app environment so magic-link and OAuth redirects use your deployed domain.
 - Include callback path, e.g.:
   - `http://localhost:3000/auth/callback`
   - `https://your-domain.com/auth/callback`
