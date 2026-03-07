@@ -5,9 +5,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 export type AppUserProfile = {
   id: string;
   email: string;
-  full_name: string | null;
-  onboarding_completed: boolean;
-  created_at: string;
+  name: string;
+  createdAt: string;
 };
 
 type AuthUser = {
@@ -58,18 +57,21 @@ export async function getOrCreateAppUserProfile(user: { id: string; email?: stri
 
   const email = user.email ?? "";
   const fullNameFromMeta = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null;
+  const nameFromMeta = typeof user.user_metadata?.name === "string" ? user.user_metadata.name : null;
+  const fallbackName = email.split("@")[0] || "Sola User";
+  const name = fullNameFromMeta ?? nameFromMeta ?? fallbackName;
 
   const { data, error } = await supabase
-    .from("users")
+    .from("User")
     .upsert(
       {
         id: user.id,
         email,
-        full_name: fullNameFromMeta
+        name
       },
       { onConflict: "id" }
     )
-    .select("id, email, full_name, onboarding_completed, created_at")
+    .select("id, email, name, createdAt")
     .single();
 
   if (error) {
