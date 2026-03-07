@@ -94,6 +94,12 @@ In Supabase Auth settings:
   - `https://your-domain.com/auth/callback`
 - Configure Google provider in Supabase if you want Google sign-in enabled.
 
+## Automated schema bootstrap on deployment
+
+- `npm run build` now runs `npm run db:bootstrap` before `next build`.
+- `db:bootstrap` applies `supabase/schema.sql` and `supabase/seed.sql` using `SUPABASE_DB_URL`.
+- On Vercel, if `SUPABASE_DB_URL` is missing, the build fails fast so an uninitialized database cannot be deployed.
+
 ## Run locally
 
 ```bash
