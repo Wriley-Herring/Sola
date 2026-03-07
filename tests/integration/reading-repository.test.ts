@@ -37,9 +37,14 @@ describe("reading repository", () => {
 
     const updateChain = {
       update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis()
+      eq: vi.fn()
     };
-    updateChain.eq.mockResolvedValue({ error: null });
+    updateChain.eq.mockImplementation(function () {
+      if (updateChain.eq.mock.calls.length >= 2) {
+        return Promise.resolve({ error: null });
+      }
+      return this;
+    });
 
     mockSupabase.from.mockReturnValueOnce(selectChain).mockReturnValueOnce(updateChain);
 
@@ -47,5 +52,28 @@ describe("reading repository", () => {
     await markDayComplete("user-1", "progress-1", 1, 30);
 
     expect(updateChain.update).toHaveBeenCalledWith({ completed_days: [1], current_day: 2 });
+  });
+
+  it("getUserActivePlan returns null when user_progress is missing from schema cache", async () => {
+    const maybeSingle = vi.fn(async () => ({
+      data: null,
+      error: {
+        code: "PGRST205",
+        message: "Could not find the table 'public.user_progress' in the schema cache"
+      }
+    }));
+
+    const queryChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle
+    };
+
+    mockSupabase.from.mockReturnValueOnce(queryChain);
+
+    const { getUserActivePlan } = await import("@/lib/repositories/reading-repository");
+    await expect(getUserActivePlan("user-1")).resolves.toBeNull();
   });
 });
