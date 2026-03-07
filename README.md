@@ -22,6 +22,7 @@ Then set:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_DB_URL` (direct Postgres connection string used for schema/seed bootstrap)
 - `SITE_URL` (server-only canonical app URL; used for auth redirect links)
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only, only needed for privileged admin scripts; not used in normal app auth flows)
 - `OPENAI_API_KEY` (server-only)
@@ -46,7 +47,7 @@ Protected routes:
 ### How auth works
 
 - `middleware.ts` performs optimistic cookie/session route checks and redirects unauthenticated users to `/login`.
-- Real auth checks happen in server code (`requireAuthUser` / `requireAppUserProfile`).
+- Real auth checks happen in server code (`requireUser`, `requireAuthUser`, `requireAppUserProfile`).
 - App profile provisioning is done server-side and idempotent via `upsert` into `public."User"`.
 - Login supports email magic link as primary path plus optional Google OAuth.
 - Callback route exchanges auth code for session and redirects to `/today` (or `next` query param).
@@ -59,12 +60,12 @@ Protected routes:
 
 ## Database setup (Supabase SQL)
 
-Run migrations in order:
+Initialize schema and seed data from the repo root:
 
-1. `supabase/migrations/001_init.sql`
-2. `supabase/migrations/002_passage_insight_ai_cache.sql`
-3. `supabase/migrations/003_auth_profiles_and_rls.sql`
-4. `supabase/seed.sql`
+1. `psql "$SUPABASE_DB_URL" -f supabase/schema.sql`
+2. `psql "$SUPABASE_DB_URL" -f supabase/seed.sql`
+
+These scripts are idempotent and safe to rerun during provisioning and CI validation.
 
 ## Profile table model
 
@@ -164,3 +165,10 @@ These routes are enabled **only** when:
 They set/clear a `sola-e2e-user` cookie that is consumed by `getCurrentAuthUser` in the same guarded test-only mode.
 
 This avoids production auth shortcuts while still enabling maintainable core journey automation.
+
+
+## Production safety checks
+
+- `npm run verify` runs lint + typecheck + unit + integration suites.
+- Supabase schema-cache errors are translated into: `Sola database is not initialized. Run schema setup.`
+- `next build` fails fast if required Supabase env vars are missing.

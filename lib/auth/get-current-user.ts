@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { logEvent } from "@/lib/observability/log";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 export type AppUserProfile = {
   id: string;
@@ -39,6 +41,22 @@ export async function getCurrentAuthUser() {
     data: { user }
   } = await supabase.auth.getUser();
 
+  if (user) {
+    logEvent("auth_success", { userId: user.id });
+  } else {
+    logEvent("auth_failure", { reason: "no_session" });
+  }
+
+  return user;
+}
+
+export async function requireUser() {
+  const user = await getCurrentAuthUser();
+
+  if (!user) {
+    throw new Error("Authentication required.");
+  }
+
   return user;
 }
 
@@ -60,56 +78,47 @@ export async function getOrCreateAppUserProfile(user: { id: string; email?: stri
   const nameFromMeta = typeof user.user_metadata?.name === "string" ? user.user_metadata.name : null;
   const fallbackName = email.split("@")[0] || "Sola User";
   const name = fullNameFromMeta ?? nameFromMeta ?? fallbackName;
-  const nowIso = new Date().toISOString();
 
-  const selectFields = "id, email, name, createdAt";
+  const selectFields = "id, email, full_name, created_at";
 
   const { data: existingById, error: existingByIdError } = await supabase
-    .from("User")
+    .from("users")
     .select(selectFields)
     .eq("id", user.id)
     .maybeSingle();
 
-  if (existingByIdError) {
-    throw existingByIdError;
-  }
+  throwIfSupabaseError(existingByIdError);
 
   if (existingById) {
-    return existingById as AppUserProfile;
-  }
-
-  const { data: existingByEmail, error: existingByEmailError } = await supabase
-    .from("User")
-    .select(selectFields)
-    .eq("email", email)
-    .maybeSingle();
-
-  if (existingByEmailError) {
-    throw existingByEmailError;
-  }
-
-  if (existingByEmail) {
-    return existingByEmail as AppUserProfile;
+    return {
+      id: existingById.id,
+      email: existingById.email,
+      name: existingById.full_name ?? name,
+      createdAt: existingById.created_at
+    } satisfies AppUserProfile;
   }
 
   const { data, error } = await supabase
-    .from("User")
-    .insert(
-      {
-        id: user.id,
-        email,
-        name,
-        updatedAt: nowIso
-      }
-    )
+    .from("users")
+    .insert({
+      id: user.id,
+      email,
+      full_name: name
+    })
     .select(selectFields)
     .single();
 
-  if (error) {
-    throw error;
+  throwIfSupabaseError(error);
+  if (!data) {
+    throw new Error("Failed to create user profile.");
   }
 
-  return data as AppUserProfile;
+  return {
+    id: data.id,
+    email: data.email,
+    name: data.full_name ?? name,
+    createdAt: data.created_at
+  } satisfies AppUserProfile;
 }
 
 export async function requireAppUserProfile() {

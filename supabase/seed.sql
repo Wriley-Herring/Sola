@@ -1,9 +1,6 @@
 begin;
 
-truncate table public.user_progress restart identity cascade;
-truncate table public.reading_plan_days restart identity cascade;
-truncate table public.reading_plans restart identity cascade;
-insert into public.reading_plans (slug, title, description, duration_days)
+insert into public.reading_plans (slug, title, description, duration)
 values
   ('life-of-jesus', 'Life of Jesus', 'Walk through key moments in Christ''s ministry with contemplative daily readings.', 30),
   ('foundations-of-scripture', 'Foundations of Scripture', 'A 30-day framework of core biblical passages that shape the story of redemption.', 30),
@@ -11,7 +8,7 @@ values
 on conflict (slug) do update
 set title = excluded.title,
     description = excluded.description,
-    duration_days = excluded.duration_days;
+    duration = excluded.duration;
 
 with
 life_plan as (
@@ -24,17 +21,19 @@ life_templates as (
     (3, 'Luke 10:25-37', 'The Good Samaritan\n\nA lawyer tested Jesus... "Which one proved to be a neighbor?" Jesus said, "Go and do likewise."')
   ) as t(idx, passage_reference, passage_text)
 )
-insert into public.reading_plan_days (reading_plan_id, day_number, passage_reference, passage_text)
+insert into public.reading_plan_days (plan_id, day_number, passage_reference, normalized_ref, passage_text)
 select
   life_plan.id,
   gs.day_number,
   lt.passage_reference,
+  lower(trim(regexp_replace(lt.passage_reference, '\\s+', ' ', 'g'))),
   lt.passage_text
 from life_plan
 cross join generate_series(1, 30) as gs(day_number)
 join life_templates lt on lt.idx = ((gs.day_number - 1) % 3) + 1
-on conflict (reading_plan_id, day_number) do update
+on conflict (plan_id, day_number) do update
 set passage_reference = excluded.passage_reference,
+    normalized_ref = excluded.normalized_ref,
     passage_text = excluded.passage_text;
 
 with
@@ -48,17 +47,19 @@ foundations_templates as (
     (3, 'Luke 10:25-37', 'Neighbor Love\n\nJesus answers with a story where mercy crosses boundaries and compassion interrupts convenience.')
   ) as t(idx, passage_reference, passage_text)
 )
-insert into public.reading_plan_days (reading_plan_id, day_number, passage_reference, passage_text)
+insert into public.reading_plan_days (plan_id, day_number, passage_reference, normalized_ref, passage_text)
 select
   foundations_plan.id,
   gs.day_number,
   ft.passage_reference,
+  lower(trim(regexp_replace(ft.passage_reference, '\\s+', ' ', 'g'))),
   ft.passage_text
 from foundations_plan
 cross join generate_series(1, 30) as gs(day_number)
 join foundations_templates ft on ft.idx = ((gs.day_number - 1) % 3) + 1
-on conflict (reading_plan_id, day_number) do update
+on conflict (plan_id, day_number) do update
 set passage_reference = excluded.passage_reference,
+    normalized_ref = excluded.normalized_ref,
     passage_text = excluded.passage_text;
 
 with
@@ -72,17 +73,19 @@ psalm_templates as (
     (3, 'Psalm 42:1-5', 'As the Deer\n\nAs a deer pants for streams of water, so my soul pants for you, O God... Hope in God; I shall again praise him.')
   ) as t(idx, passage_reference, passage_text)
 )
-insert into public.reading_plan_days (reading_plan_id, day_number, passage_reference, passage_text)
+insert into public.reading_plan_days (plan_id, day_number, passage_reference, normalized_ref, passage_text)
 select
   psalms_plan.id,
   gs.day_number,
   pt.passage_reference,
+  lower(trim(regexp_replace(pt.passage_reference, '\\s+', ' ', 'g'))),
   pt.passage_text
 from psalms_plan
 cross join generate_series(1, 14) as gs(day_number)
 join psalm_templates pt on pt.idx = ((gs.day_number - 1) % 3) + 1
-on conflict (reading_plan_id, day_number) do update
+on conflict (plan_id, day_number) do update
 set passage_reference = excluded.passage_reference,
+    normalized_ref = excluded.normalized_ref,
     passage_text = excluded.passage_text;
 
 commit;
