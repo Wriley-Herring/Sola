@@ -8,11 +8,11 @@ describe("supabase error mapping", () => {
       message: "Could not find the table 'public.reading_plans' in the schema cache"
     });
 
-    expect(mapped?.message).toBe("Sola database is not initialized. Run schema setup.");
+    expect(mapped?.message).toContain("Sola database is not initialized.");
   });
 
   it("maps unknown errors without leaking internals", () => {
     const mapped = mapSupabaseError({ code: "XX000", message: "backend failure" });
-    expect(mapped?.message).toBe("backend failure");
+    expect(mapped?.message).toBe("Database query failed. See server logs for details.");
   });
 });

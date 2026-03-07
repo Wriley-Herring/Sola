@@ -88,4 +88,12 @@ set passage_reference = excluded.passage_reference,
     normalized_ref = excluded.normalized_ref,
     passage_text = excluded.passage_text;
 
+
+-- Keep seeded plans deterministic when durations change.
+delete from public.reading_plan_days d
+using public.reading_plans p
+where d.plan_id = p.id
+  and p.slug in ('life-of-jesus', 'foundations-of-scripture', 'psalms-for-prayer')
+  and d.day_number > p.duration;
+
 commit;
