@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { getPublicSupabaseEnv } from "@/lib/env";
 
 type CookieToSet = {
   name: string;
@@ -9,14 +10,9 @@ type CookieToSet = {
 
 export function createServerSupabaseClient() {
   const cookieStore = cookies();
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const { supabaseUrl, supabaseAnonKey } = getPublicSupabaseEnv();
 
-  if (!supabaseUrl || !supabasePublishableKey) {
-    throw new Error("Missing Supabase server environment variables.");
-  }
-
-  return createServerClient(supabaseUrl, supabasePublishableKey, {
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
