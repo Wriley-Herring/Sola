@@ -1,5 +1,15 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+type PostgrestLikeError = {
+  code?: string;
+  message?: string;
+};
+
+function isMissingUserProgressTableError(error: PostgrestLikeError | null) {
+  if (!error) return false;
+  return error.code === "PGRST205" && error.message?.includes("public.user_progress");
+}
+
 export type ReadingPlan = {
   id: string;
   slug: string;
@@ -73,7 +83,12 @@ export async function getUserActivePlan(userId: string) {
     .limit(1)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    if (isMissingUserProgressTableError(error)) {
+      return null;
+    }
+    throw error;
+  }
   if (!data) return null;
 
   return {
