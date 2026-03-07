@@ -47,7 +47,7 @@ Protected routes:
 
 - `middleware.ts` performs optimistic cookie/session route checks and redirects unauthenticated users to `/login`.
 - Real auth checks happen in server code (`requireAuthUser` / `requireAppUserProfile`).
-- App profile provisioning is done server-side and idempotent via `upsert` into `public.users`.
+- App profile provisioning is done server-side and idempotent via `upsert` into `public."User"`.
 - Login supports email magic link as primary path plus optional Google OAuth.
 - Callback route exchanges auth code for session and redirects to `/today` (or `next` query param).
 
@@ -68,21 +68,19 @@ Run migrations in order:
 
 ## Profile table model
 
-`public.users` stores app-specific profile data and is separate from `auth.users`:
+`public."User"` stores app-specific profile data used by the app auth profile layer:
 
-- `id uuid primary key references auth.users(id) on delete cascade`
+- `id text primary key`
 - `email text unique not null`
-- `full_name text null`
-- `onboarding_completed boolean not null default false`
-- `created_at timestamptz not null default now()`
+- `name text not null`
+- `createdAt timestamp not null default now()`
 
 ## RLS enforcement
 
 RLS is enabled for user-owned tables and enforced by policies:
 
-- `public.users`: users can read/insert/update only their own row (`auth.uid() = id`).
-- `public.user_progress`: users can read/write/delete only rows where `auth.uid() = user_id`.
-- Shared content tables remain globally readable (`reading_plans`, `reading_plan_days`, `passage_insight_cache`).
+- Ensure profile table access policy for `public."User"` allows the authenticated user to upsert/select their own row by `id` in your deployment.
+- Keep user-owned progress tables protected by user identity, and shared content tables globally readable.
 
 ## Magic link + OAuth configuration notes
 
