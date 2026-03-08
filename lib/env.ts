@@ -6,17 +6,33 @@ function requireEnvVar(name: string, value: string | undefined) {
   return value;
 }
 
+function requireUrlEnvVar(name: string, value: string | undefined) {
+  const requiredValue = requireEnvVar(name, value);
+
+  try {
+    return new URL(requiredValue).toString();
+  } catch {
+    throw new Error(`Invalid URL in environment variable: ${name}`);
+  }
+}
+
 export function getPublicSupabaseEnv() {
   return {
-    supabaseUrl: requireEnvVar("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL),
+    supabaseUrl: requireUrlEnvVar("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL),
     supabaseAnonKey: requireEnvVar("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   };
 }
 
 export function getServiceRoleSupabaseEnv() {
   return {
-    supabaseUrl: requireEnvVar("SUPABASE_URL", process.env.SUPABASE_URL),
+    supabaseUrl: requireUrlEnvVar("SUPABASE_URL", process.env.SUPABASE_URL),
     supabaseServiceRoleKey: requireEnvVar("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
+  };
+}
+
+export function getSiteUrlEnv() {
+  return {
+    siteUrl: requireUrlEnvVar("SITE_URL", process.env.SITE_URL)
   };
 }
 
