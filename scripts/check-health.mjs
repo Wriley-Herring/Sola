@@ -12,7 +12,10 @@ if (!response.ok) {
 }
 
 const payload = await response.json();
-if (payload.status !== "ok" || payload.databaseReady !== true) {
+const appCheck = payload?.checks?.app;
+const databaseCheck = payload?.checks?.database;
+
+if (payload?.status !== "ok" || appCheck !== "up" || databaseCheck !== "up") {
   console.error("[healthcheck] Application is not ready:", payload);
   process.exit(1);
 }

@@ -1,8 +1,6 @@
 function main() {
-  console.error(
-    "[db:bootstrap] Bootstrap is temporarily disabled: Prisma-based SQL execution was removed. " +
-      "Implement a non-Prisma SQL execution path before re-enabling this script."
-  );
+  console.error("[db:bootstrap] Intentionally disabled: automated DB bootstrap is not part of this repo's runtime/build flow.");
+  console.error("[db:bootstrap] Apply SQL manually using supabase/schema.sql then supabase/seed.sql (for example via Supabase SQL editor or psql).");
   process.exit(1);
 }
 
