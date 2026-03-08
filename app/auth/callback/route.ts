@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logEvent } from "@/lib/observability/log";
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
 import { createAppUserProfileIfMissing } from "@/lib/auth/get-current-user";
 
@@ -14,10 +15,19 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL(next, requestUrl.origin));
   const supabase = createRouteHandlerSupabaseClient(request, response);
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
-  if (error) {
-    throw error;
+  if (exchangeError) {
+    logEvent("auth_failure", {
+      reason: "exchange_code_failed",
+      code: exchangeError.code,
+      status: exchangeError.status,
+      message: exchangeError.message
+    });
+
+    throw new Error(
+      `Failed to exchange auth code for session${exchangeError.code ? ` (${exchangeError.code})` : ""}: ${exchangeError.message}`
+    );
   }
 
   const {
@@ -26,7 +36,14 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (getUserError) {
-    throw getUserError;
+    logEvent("auth_failure", {
+      reason: "callback_get_user_failed",
+      code: getUserError.code,
+      status: getUserError.status,
+      message: getUserError.message
+    });
+
+    throw new Error(`Failed to load authenticated user${getUserError.code ? ` (${getUserError.code})` : ""}: ${getUserError.message}`);
   }
 
   if (user) {

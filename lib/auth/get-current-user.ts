@@ -40,28 +40,29 @@ export async function getCurrentAuthUser() {
 
   const supabase = createServerComponentSupabaseClient();
 
-  try {
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser();
 
-    if (user) {
-      logEvent("auth_success", { userId: user.id });
-    } else {
-      logEvent("auth_failure", { reason: "no_session" });
-    }
+  if (error) {
+    logEvent("auth_failure", {
+      reason: "get_user_failed",
+      code: error.code,
+      status: error.status,
+      message: error.message
+    });
 
-    return user;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    if (message.includes("read-only for cookies")) {
-      logEvent("auth_failure", { reason: "read_only_cookie_write" });
-      return null;
-    }
-
-    throw error;
+    throw new Error(`Failed to resolve authenticated user${error.code ? ` (${error.code})` : ""}: ${error.message}`);
   }
+
+  if (user) {
+    logEvent("auth_success", { userId: user.id });
+  } else {
+    logEvent("auth_failure", { reason: "no_session" });
+  }
+
+  return user;
 }
 
 export async function requireUser() {
