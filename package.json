@@ -19,7 +19,6 @@
     "verify:health": "node scripts/check-health.mjs"
   },
   "dependencies": {
-    "@prisma/client": "^6.5.0",
     "@supabase/supabase-js": "^2.49.1",
     "clsx": "^2.1.1",
     "next": "14.2.18",
@@ -37,7 +36,6 @@
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.18",
     "postcss": "^8.4.49",
-    "prisma": "^6.5.0",
     "tailwindcss": "^3.4.15",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
