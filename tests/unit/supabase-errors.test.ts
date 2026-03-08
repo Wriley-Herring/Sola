@@ -11,8 +11,13 @@ describe("supabase error mapping", () => {
     expect(mapped?.message).toContain("Sola database is not initialized.");
   });
 
-  it("maps unknown errors without leaking internals", () => {
+  it("preserves database error code and message for diagnostics", () => {
     const mapped = mapSupabaseError({ code: "XX000", message: "backend failure" });
-    expect(mapped?.message).toBe("Database query failed. See server logs for details.");
+    expect(mapped?.message).toBe("Database query failed (XX000): backend failure");
+  });
+
+  it("handles unknown code without losing error message", () => {
+    const mapped = mapSupabaseError({ message: "permission denied for table users" });
+    expect(mapped?.message).toBe("Database query failed: permission denied for table users");
   });
 });

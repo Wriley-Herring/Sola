@@ -30,7 +30,10 @@ export function mapSupabaseError(error: PostgrestLikeError | null): Error | null
     return new Error(MISSING_SCHEMA_ERROR);
   }
 
-  return new Error("Database query failed. See server logs for details.");
+  const codeSuffix = error.code ? ` (${error.code})` : "";
+  const details = error.message?.trim() ? `: ${error.message.trim()}` : "";
+
+  return new Error(`Database query failed${codeSuffix}${details}`);
 }
 
 export function throwIfSupabaseError(error: PostgrestLikeError | null): void {
