@@ -5,19 +5,36 @@ export async function GET() {
   try {
     const readiness = await getDatabaseReadiness();
 
-    return NextResponse.json({
-      status: readiness.isReady ? "ok" : "degraded",
-      databaseReady: readiness.isReady,
-      missingTables: readiness.missingTables,
-      missingSeedData: readiness.missingSeedData
-    });
+    if (readiness.isReady) {
+      return NextResponse.json({
+        status: "ok",
+        checks: {
+          app: "up",
+          database: "up"
+        }
+      });
+    }
+
+    return NextResponse.json(
+      {
+        status: "degraded",
+        checks: {
+          app: "up",
+          database: "down"
+        },
+        reason: readiness.reason ?? "Database is unavailable."
+      },
+      { status: 503 }
+    );
   } catch {
     return NextResponse.json(
       {
         status: "degraded",
-        databaseReady: false,
-        missingTables: [],
-        missingSeedData: ["database_readiness_check_failed"]
+        checks: {
+          app: "up",
+          database: "down"
+        },
+        reason: "Database readiness check failed."
       },
       { status: 503 }
     );
