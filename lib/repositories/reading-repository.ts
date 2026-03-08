@@ -141,12 +141,13 @@ export async function markDayComplete(userId: string, enrollmentId: string, comp
 
   throwIfSupabaseError(insertError);
 
-  const nextDay = Math.min(totalDays, completedDay + 1);
+  const isCompleted = completedDay >= totalDays;
+  const nextDay = isCompleted ? totalDays + 1 : Math.min(totalDays, completedDay + 1);
   const { error: updateError } = await supabase
     .from("user_plan_enrollments")
     .update({
       current_day: nextDay,
-      completed: nextDay >= totalDays
+      completed: isCompleted
     })
     .eq("id", enrollmentId)
     .eq("user_id", userId);

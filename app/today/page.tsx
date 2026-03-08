@@ -26,15 +26,26 @@ export default async function TodayPage() {
     );
   }
 
-  const currentDay = await getCurrentDayReading(active.plan.id, active.progress.current_day);
-
-  if (!currentDay) {
+  if (active.progress.completed) {
     return (
       <EmptyState
         title="Plan complete"
         description="You have reached the end of this plan. Start another one to continue reading."
         ctaHref="/plans"
         ctaLabel="Start another plan"
+      />
+    );
+  }
+
+  const currentDay = await getCurrentDayReading(active.plan.id, active.progress.current_day);
+
+  if (!currentDay) {
+    return (
+      <EmptyState
+        title="No reading found"
+        description="We couldn't load today's passage right now. Please try again shortly."
+        ctaHref="/today"
+        ctaLabel="Refresh"
       />
     );
   }
