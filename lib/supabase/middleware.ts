@@ -8,14 +8,10 @@ type CookieToSet = {
   options?: CookieOptions;
 };
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
-    request
-  });
-
+function createMiddlewareSupabaseClient(request: NextRequest, setResponse: (response: NextResponse) => void) {
   const { supabaseUrl, supabaseAnonKey } = getPublicSupabaseEnv();
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -23,15 +19,27 @@ export async function updateSession(request: NextRequest) {
       setAll(cookiesToSet: CookieToSet[]) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
 
-        response = NextResponse.next({
+        const response = NextResponse.next({
           request
         });
 
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });
+
+        setResponse(response);
       }
     }
+  });
+}
+
+export async function updateSession(request: NextRequest) {
+  let response = NextResponse.next({
+    request
+  });
+
+  const supabase = createMiddlewareSupabaseClient(request, (nextResponse) => {
+    response = nextResponse;
   });
 
   await supabase.auth.getUser();

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { getOrCreateAppUserProfile } from "@/lib/auth/get-current-user";
 import { getCanonicalSiteOriginEnv } from "@/lib/env";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerActionSupabaseClient } from "@/lib/supabase/server";
 
 function getOrigin() {
   return getCanonicalSiteOriginEnv().origin;
@@ -17,7 +17,7 @@ export async function sendMagicLinkAction(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent("Please enter your email.")}`);
   }
 
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerActionSupabaseClient();
   const origin = getOrigin();
 
   const { error } = await supabase.auth.signInWithOtp({
@@ -35,7 +35,7 @@ export async function sendMagicLinkAction(formData: FormData) {
 }
 
 export async function signInWithGoogleAction() {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerActionSupabaseClient();
   const origin = getOrigin();
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -53,13 +53,13 @@ export async function signInWithGoogleAction() {
 }
 
 export async function signOutAction() {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerActionSupabaseClient();
   await supabase.auth.signOut();
   redirect("/");
 }
 
 export async function ensureProfileAfterAuth() {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerActionSupabaseClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();

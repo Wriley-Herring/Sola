@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerActionSupabaseClient } from "@/lib/supabase/server";
 import { getOrCreateAppUserProfile } from "@/lib/auth/get-current-user";
 
 export async function GET(request: Request) {
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Missing auth code.")}`, requestUrl.origin));
   }
 
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerActionSupabaseClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {

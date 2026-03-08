@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { logEvent } from "@/lib/observability/log";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerComponentSupabaseClient } from "@/lib/supabase/server";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 import { ensureDatabaseReady } from "@/lib/system/ensure-database-ready";
 
@@ -37,7 +37,7 @@ export async function getCurrentAuthUser() {
   const bypassUser = getE2EBypassUser();
   if (bypassUser) return bypassUser;
 
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerComponentSupabaseClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
@@ -72,7 +72,7 @@ export async function requireAuthUser() {
 }
 
 export async function getOrCreateAppUserProfile(user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }) {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerComponentSupabaseClient();
 
   const email = user.email ?? "";
   const fullNameFromMeta = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null;
