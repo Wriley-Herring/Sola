@@ -38,17 +38,29 @@ export async function getCurrentAuthUser() {
   if (bypassUser) return bypassUser;
 
   const supabase = createServerComponentSupabaseClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
 
-  if (user) {
-    logEvent("auth_success", { userId: user.id });
-  } else {
-    logEvent("auth_failure", { reason: "no_session" });
+  try {
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      logEvent("auth_success", { userId: user.id });
+    } else {
+      logEvent("auth_failure", { reason: "no_session" });
+    }
+
+    return user;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (message.includes("read-only for cookies")) {
+      logEvent("auth_failure", { reason: "read_only_cookie_write" });
+      return null;
+    }
+
+    throw error;
   }
-
-  return user;
 }
 
 export async function requireUser() {
