@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (user) {
-    await createAppUserProfileIfMissing(user);
+    await createAppUserProfileIfMissing(user, supabase);
   }
 
   return response;

@@ -90,13 +90,13 @@ Open `http://localhost:3000`.
 2. Apply `supabase/schema.sql` and `supabase/seed.sql` to the target Supabase database.
 3. Deploy app build (`npm run build`, then run/start in your platform).
 4. Run verification checks (`npm run verify:env` and `npm run verify`).
-5. If `HEALTHCHECK_URL` is set, `npm run verify:health` confirms `/api/health` returns ready status.
+5. If `HEALTHCHECK_URL` is set, `npm run verify:health` confirms `/api/health` returns `status: "ok"` with `checks.app: "up"` and `checks.database: "up"`.
 
 ### Important notes
 
 - `npm run build` does **not** bootstrap or migrate the database.
-- `npm run db:bootstrap` is currently disabled and exits non-zero.
-- Database setup is an explicit operator step.
+- `npm run db:bootstrap` is intentionally disabled and exits non-zero with manual SQL instructions.
+- Database setup is an explicit operator step: run `supabase/schema.sql` and `supabase/seed.sql` yourself.
 
 ## Supabase dashboard manual setup checklist
 

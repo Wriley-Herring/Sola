@@ -19,6 +19,30 @@ type AuthUser = {
   user_metadata?: Record<string, unknown>;
 };
 
+async function getAppUserProfileWithClient(
+  supabase: ReturnType<typeof createServerComponentSupabaseClient>,
+  userId: string
+): Promise<AppUserProfile | null> {
+  const { data, error } = await supabase
+    .from("users")
+    .select(USER_PROFILE_SELECT_FIELDS)
+    .eq("id", userId)
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    email: data.email,
+    name: data.full_name ?? "Sola User",
+    createdAt: data.created_at
+  } satisfies AppUserProfile;
+}
+
 function getE2EBypassUser(): AuthUser | null {
   if (process.env.NODE_ENV !== "test" || process.env.E2E_AUTH_BYPASS !== "true") {
     return null;
@@ -88,34 +112,20 @@ export async function requireAuthUser() {
 export async function getAppUserProfile(userId: string): Promise<AppUserProfile | null> {
   const supabase = createServerComponentSupabaseClient();
 
-  const { data, error } = await supabase
-    .from("users")
-    .select(USER_PROFILE_SELECT_FIELDS)
-    .eq("id", userId)
-    .maybeSingle();
-
-  throwIfSupabaseError(error);
-
-  if (!data) {
-    return null;
-  }
-
-  return {
-    id: data.id,
-    email: data.email,
-    name: data.full_name ?? "Sola User",
-    createdAt: data.created_at
-  } satisfies AppUserProfile;
+  return getAppUserProfileWithClient(supabase, userId);
 }
 
-export async function createAppUserProfileIfMissing(user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }) {
-  const existingProfile = await getAppUserProfile(user.id);
+export async function createAppUserProfileIfMissing(
+  user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> },
+  supabaseClient: ReturnType<typeof createServerComponentSupabaseClient> = createServerComponentSupabaseClient()
+) {
+  const existingProfile = await getAppUserProfileWithClient(supabaseClient, user.id);
 
   if (existingProfile) {
     return existingProfile;
   }
 
-  const supabase = createServerComponentSupabaseClient();
+  const supabase = supabaseClient;
   const email = user.email ?? "";
   const fullNameFromMeta = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null;
   const nameFromMeta = typeof user.user_metadata?.name === "string" ? user.user_metadata.name : null;
