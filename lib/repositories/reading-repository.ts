@@ -1,5 +1,5 @@
 import { logEvent } from "@/lib/observability/log";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerComponentSupabaseClient } from "@/lib/supabase/server";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 
 export type ReadingPlan = {
@@ -28,7 +28,7 @@ export type ReadingPlanDay = {
 };
 
 export async function listReadingPlans(): Promise<ReadingPlan[]> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerComponentSupabaseClient();
   const { data, error } = await supabase
     .from("reading_plans")
     .select("id, slug, title, description, duration")
@@ -39,7 +39,7 @@ export async function listReadingPlans(): Promise<ReadingPlan[]> {
 }
 
 export async function enrollUserInPlan(userId: string, planId: string) {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerComponentSupabaseClient();
 
   const { error } = await supabase.from("user_plan_enrollments").upsert(
     {
@@ -78,7 +78,7 @@ function extractPlan(enrollment: EnrollmentWithPlan): ReadingPlan {
 }
 
 export async function getUserActivePlan(userId: string) {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerComponentSupabaseClient();
 
   const { data, error } = await supabase
     .from("user_plan_enrollments")
@@ -115,7 +115,7 @@ export async function getUserActivePlan(userId: string) {
 }
 
 export async function getCurrentDayReading(planId: string, dayNumber: number): Promise<ReadingPlanDay | null> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerComponentSupabaseClient();
 
   const { data, error } = await supabase
     .from("reading_plan_days")
@@ -129,7 +129,7 @@ export async function getCurrentDayReading(planId: string, dayNumber: number): P
 }
 
 export async function markDayComplete(userId: string, enrollmentId: string, completedDay: number, totalDays: number) {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerComponentSupabaseClient();
 
   const { error: insertError } = await supabase.from("user_progress_days").upsert(
     {

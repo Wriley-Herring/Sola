@@ -58,5 +58,3 @@ export function createRouteHandlerSupabaseClient(request: NextRequest, response:
   });
 }
 
-// Temporary compatibility alias for non-auth call sites that have not been migrated yet.
-export const createServerSupabaseClient = createServerComponentSupabaseClient;

@@ -1,6 +1,6 @@
 import { MODEL, PROMPT_VERSION, generatePassageInsights } from "@/lib/ai/generate-passage-insights";
 import { logEvent } from "@/lib/observability/log";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerComponentSupabaseClient } from "@/lib/supabase/server";
 import { throwIfSupabaseError } from "@/lib/supabase/errors";
 import type { PassageInsights } from "@/types/insights";
 
@@ -25,7 +25,7 @@ function mapInsightRow(row: InsightRow): PassageInsights {
 }
 
 export async function getOrCreatePassageInsights(reference: string, passageText: string): Promise<PassageInsights> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerComponentSupabaseClient();
   const normalizedReference = normalizeReference(reference);
 
   const { data: cached, error: cacheError } = await supabase

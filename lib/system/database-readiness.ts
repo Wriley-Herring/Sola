@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerComponentSupabaseClient } from "@/lib/supabase/server";
 
 export const REQUIRED_TABLES = [
   "users",
@@ -17,7 +17,7 @@ export type DatabaseReadiness = {
   missingSeedData: string[];
 };
 
-type SupabaseLikeClient = ReturnType<typeof createServerSupabaseClient>;
+type SupabaseLikeClient = ReturnType<typeof createServerComponentSupabaseClient>;
 
 type TableReadinessCheckResult = {
   exists: boolean;
@@ -49,7 +49,7 @@ async function checkTableExists(supabase: SupabaseLikeClient, tableName: string)
 }
 
 export async function getDatabaseReadiness(): Promise<DatabaseReadiness> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerComponentSupabaseClient();
   const missingTables: string[] = [];
 
   for (const tableName of REQUIRED_TABLES) {
