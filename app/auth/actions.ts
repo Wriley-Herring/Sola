@@ -2,11 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { getOrCreateAppUserProfile } from "@/lib/auth/get-current-user";
-import { getSiteUrlEnv } from "@/lib/env";
+import { getCanonicalSiteOriginEnv } from "@/lib/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 function getOrigin() {
-  return new URL(getSiteUrlEnv().siteUrl).origin;
+  return getCanonicalSiteOriginEnv().origin;
 }
 
 export async function sendMagicLinkAction(formData: FormData) {
