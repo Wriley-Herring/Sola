@@ -1,7 +1,6 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getOrCreateAppUserProfile } from "@/lib/auth/get-current-user";
 import { getCanonicalSiteOriginEnv } from "@/lib/env";
 import { createServerActionSupabaseClient } from "@/lib/supabase/server";
 
@@ -56,15 +55,4 @@ export async function signOutAction() {
   const supabase = createServerActionSupabaseClient();
   await supabase.auth.signOut();
   redirect("/");
-}
-
-export async function ensureProfileAfterAuth() {
-  const supabase = createServerActionSupabaseClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    await getOrCreateAppUserProfile(user);
-  }
 }

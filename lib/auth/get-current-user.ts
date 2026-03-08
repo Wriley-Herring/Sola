@@ -12,6 +12,8 @@ export type AppUserProfile = {
   createdAt: string;
 };
 
+const USER_PROFILE_SELECT_FIELDS = "id, email, full_name, created_at";
+
 type AuthUser = {
   id: string;
   email?: string | null;
@@ -83,33 +85,42 @@ export async function requireAuthUser() {
   return user;
 }
 
-export async function getOrCreateAppUserProfile(user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }) {
+export async function getAppUserProfile(userId: string): Promise<AppUserProfile | null> {
   const supabase = createServerComponentSupabaseClient();
 
+  const { data, error } = await supabase
+    .from("users")
+    .select(USER_PROFILE_SELECT_FIELDS)
+    .eq("id", userId)
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    email: data.email,
+    name: data.full_name ?? "Sola User",
+    createdAt: data.created_at
+  } satisfies AppUserProfile;
+}
+
+export async function createAppUserProfileIfMissing(user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }) {
+  const existingProfile = await getAppUserProfile(user.id);
+
+  if (existingProfile) {
+    return existingProfile;
+  }
+
+  const supabase = createServerComponentSupabaseClient();
   const email = user.email ?? "";
   const fullNameFromMeta = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null;
   const nameFromMeta = typeof user.user_metadata?.name === "string" ? user.user_metadata.name : null;
   const fallbackName = email.split("@")[0] || "Sola User";
   const name = fullNameFromMeta ?? nameFromMeta ?? fallbackName;
-
-  const selectFields = "id, email, full_name, created_at";
-
-  const { data: existingById, error: existingByIdError } = await supabase
-    .from("users")
-    .select(selectFields)
-    .eq("id", user.id)
-    .maybeSingle();
-
-  throwIfSupabaseError(existingByIdError);
-
-  if (existingById) {
-    return {
-      id: existingById.id,
-      email: existingById.email,
-      name: existingById.full_name ?? name,
-      createdAt: existingById.created_at
-    } satisfies AppUserProfile;
-  }
 
   const { data, error } = await supabase
     .from("users")
@@ -118,7 +129,7 @@ export async function getOrCreateAppUserProfile(user: { id: string; email?: stri
       email,
       full_name: name
     })
-    .select(selectFields)
+    .select(USER_PROFILE_SELECT_FIELDS)
     .single();
 
   throwIfSupabaseError(error);
@@ -138,7 +149,11 @@ export async function requireAppUserProfile() {
   await ensureDatabaseReady();
 
   const user = await requireAuthUser();
-  const profile = await getOrCreateAppUserProfile(user);
+  const profile = await getAppUserProfile(user.id);
+
+  if (!profile) {
+    throw new Error("Authenticated user is missing a profile row in public.users.");
+  }
 
   return { user, profile };
 }
