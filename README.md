@@ -1,108 +1,115 @@
 # Sola
 
-Sola is a simple app with one core flow:
+Sola is a Next.js app backed by Supabase Auth, Supabase Postgres, and OpenAI.
 
-1. User signs in.
-2. User chooses a reading plan.
-3. User opens today’s reading.
-4. App returns cached AI insights (or generates and caches once).
-5. User marks progress.
+## Architecture (current)
 
-This repository treats database readiness as a hard prerequisite.
+Core runtime pieces:
 
-## Official Vercel + Supabase environment contract
+1. **Web app (Next.js App Router)** serves UI and server actions/routes.
+2. **Supabase Auth** handles login (magic link + Google OAuth).
+3. **Supabase Postgres** stores user profile, reading plans, progress, and cached insights.
+4. **OpenAI** generates insights when cache misses occur.
 
-When using the Vercel Supabase Marketplace integration, Vercel provides:
+There is no Prisma runtime in this codebase.
 
-- `POSTGRES_URL`
-- `POSTGRES_PRISMA_URL`
-- `POSTGRES_URL_NON_POOLING`
-- `POSTGRES_USER`
-- `POSTGRES_HOST`
-- `POSTGRES_PASSWORD`
-- `POSTGRES_DATABASE`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_URL`
-- `SUPABASE_JWT_SECRET`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_SUPABASE_URL`
+## Environment contract
 
-## Which variables Sola uses
+### Required at runtime
 
-### Browser/client auth
+These variables are required for the app to run correctly:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-### Server auth/admin
-
-- Cookie-backed auth client: `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- Service/admin client (when needed): `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
-
-### Database bootstrap
-
-`npm run db:bootstrap` resolves DB URL in this order:
-
-1. `POSTGRES_URL_NON_POOLING`
-2. `POSTGRES_URL`
-3. `POSTGRES_PRISMA_URL`
-
-`SUPABASE_DB_URL` is **not required**.
-
-## Local setup
-
-```bash
-cp .env.example .env.local
-npm install
-```
-
-Minimum required runtime variables:
-
+- `SITE_URL` (canonical app URL used to build auth callback URLs)
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
 
-## Bootstrap flow
+`npm run verify:env` validates these variables and checks URL format.
 
-Run:
+### Optional for checks/admin scripts
 
-```bash
-npm run db:bootstrap
-```
+- `HEALTHCHECK_URL` (used by `npm run verify:health`; if missing, health check is skipped)
+- `POSTGRES_URL_NON_POOLING`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL` (read by helper code, but **not required** for app runtime)
 
-The bootstrap script is idempotent and will:
+## Auth flow (high level)
 
-1. Resolve DB URL from Vercel-compatible variables.
-2. Check DB connectivity.
-3. Apply `supabase/schema.sql`.
-4. Apply `supabase/seed.sql`.
-5. Verify required tables exist.
-6. Verify baseline `reading_plans` rows exist.
-7. Exit non-zero with diagnostics if any stage fails.
+1. User starts on `/login`.
+2. User signs in via:
+   - magic link email (`signInWithOtp`), or
+   - Google OAuth (`signInWithOAuth`).
+3. Supabase redirects to `/auth/callback` with an auth code.
+4. Callback exchanges code for session and stores session cookies.
+5. App ensures a local `users` profile row exists for authenticated users.
+6. Middleware refreshes session cookies and route-guards protected pages:
+   - unauthenticated users are redirected to `/login`
+   - authenticated users are redirected away from `/login` to `/today`
 
-## Verification
+## Local setup
 
-```bash
-npm run verify:env
-npm run verify
-```
+1. Install dependencies:
 
-## Deployment readiness rule
+   ```bash
+   npm install
+   ```
 
-A deployment is not considered healthy unless:
+2. Create local env file:
 
-1. Required environment variables are present.
-2. Schema bootstrap succeeds.
-3. Seed verification succeeds.
-4. Healthcheck passes (`/api/health` returns `status: "ok"`).
+   ```bash
+   cp .env.example .env.local
+   ```
 
-## Run the app
+3. Fill required variables in `.env.local`.
 
-```bash
-npm run dev
-```
+4. Apply DB SQL manually to your Supabase project (SQL editor or `psql`):
+
+   ```bash
+   psql "$POSTGRES_URL_NON_POOLING" -f supabase/schema.sql
+   psql "$POSTGRES_URL_NON_POOLING" -f supabase/seed.sql
+   ```
+
+5. Validate env and run the app:
+
+   ```bash
+   npm run verify:env
+   npm run dev
+   ```
+
+6. (Optional) run checks:
+
+   ```bash
+   npm run verify
+   ```
 
 Open `http://localhost:3000`.
+
+## Deploy process (real flow)
+
+1. Configure runtime env vars in your host (for example Vercel).
+2. Apply `supabase/schema.sql` and `supabase/seed.sql` to the target Supabase database.
+3. Deploy app build (`npm run build`, then run/start in your platform).
+4. Run verification checks (`npm run verify:env` and `npm run verify`).
+5. If `HEALTHCHECK_URL` is set, `npm run verify:health` confirms `/api/health` returns ready status.
+
+### Important notes
+
+- `npm run build` does **not** bootstrap or migrate the database.
+- `npm run db:bootstrap` is currently disabled and exits non-zero.
+- Database setup is an explicit operator step.
+
+## Supabase dashboard manual setup checklist
+
+You still need to configure these in Supabase dashboard for a working deploy:
+
+1. **Auth URL settings**
+   - Set Site URL to your app domain.
+   - Add redirect URL(s):
+     - `https://<your-domain>/auth/callback`
+     - `http://localhost:3000/auth/callback` (local dev)
+2. **Auth providers**
+   - Enable Email provider (magic link).
+   - Enable Google provider if Google sign-in is used, and provide Google OAuth credentials.
+3. **Database schema/data**
+   - Run `supabase/schema.sql`.
+   - Run `supabase/seed.sql`.
