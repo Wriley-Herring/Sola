@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
-import { getOrCreateAppUserProfile } from "@/lib/auth/get-current-user";
+import { createAppUserProfileIfMissing } from "@/lib/auth/get-current-user";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -30,8 +30,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (user) {
-    // TODO(auth): Move profile bootstrap to a post-login domain service once callback side effects are redesigned.
-    await getOrCreateAppUserProfile(user);
+    await createAppUserProfileIfMissing(user);
   }
 
   return response;
