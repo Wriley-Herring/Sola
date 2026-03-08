@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { type NextRequest, type NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { getPublicSupabaseEnv } from "@/lib/env";
 
@@ -37,6 +38,23 @@ export function createServerActionSupabaseClient() {
     cookiesToSet.forEach(({ name, value, options }) => {
       cookieStore.set(name, value, options);
     });
+  });
+}
+
+export function createRouteHandlerSupabaseClient(request: NextRequest, response: NextResponse) {
+  const { supabaseUrl, supabaseAnonKey } = getPublicSupabaseEnv();
+
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet: CookieToSet[]) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+      }
+    }
   });
 }
 
