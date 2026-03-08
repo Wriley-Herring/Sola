@@ -36,6 +36,20 @@ export function getSiteUrlEnv() {
   };
 }
 
+export function getCanonicalSiteOriginEnv(env: NodeJS.ProcessEnv = process.env) {
+  const siteUrl = env.SITE_URL;
+
+  if (siteUrl) {
+    return { origin: new URL(requireUrlEnvVar("SITE_URL", siteUrl)).origin };
+  }
+
+  if (env.NODE_ENV === "development") {
+    return { origin: "http://localhost:3000" };
+  }
+
+  throw new Error("Missing required environment variable: SITE_URL");
+}
+
 export function getBootstrapDatabaseUrl(env: NodeJS.ProcessEnv = process.env) {
   const candidates = ["POSTGRES_URL_NON_POOLING", "POSTGRES_URL", "POSTGRES_PRISMA_URL"] as const;
 
